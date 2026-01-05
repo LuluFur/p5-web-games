@@ -743,17 +743,69 @@ class BufferTower extends Tower {
         // Pulsing network indicator
         let pulse = sin(frameCount * 0.1) * 0.2 + 0.8;
 
-        // Base platform
-        fill(60, 50, 20);
+        // MECHANICAL BASE/PLATFORM (layered rounded rectangles)
+        // Bottom platform layer (dark metal)
+        fill(40, 45, 50);
         noStroke();
-        ellipse(0, 15, 50, 20);
+        rect(-22, 10, 44, 18, 6);
 
-        // Crystal/beacon
+        // Middle platform layer (industrial grey)
+        fill(60, 65, 70);
+        rect(-18, 8, 36, 14, 5);
+
+        // Top platform ring (lighter)
+        fill(80, 85, 90);
+        rect(-14, 6, 28, 10, 4);
+
+        // CONNECTION PORTS at cardinal directions (small circles)
+        fill(100, 120, 140);
+        stroke(60, 70, 80);
+        strokeWeight(2);
+
+        // Top port
+        ellipse(0, -24, 7, 7);
+        // Right port
+        ellipse(20, 0, 7, 7);
+        // Bottom port
+        ellipse(0, 24, 7, 7);
+        // Left port
+        ellipse(-20, 0, 7, 7);
+
+        // Port lights (pulsing indicators)
+        noStroke();
+        fill(0, 200, 255, 180 * pulse);
+        ellipse(0, -24, 3, 3);
+        ellipse(20, 0, 3, 3);
+        ellipse(0, 24, 3, 3);
+        ellipse(-20, 0, 3, 3);
+
+        // ANTENNA/RELAY DISHES (small parabolic dishes at angles)
+        fill(70, 75, 80);
+        stroke(50, 55, 60);
+        strokeWeight(1.5);
+
+        // Top-left dish
+        arc(-12, -8, 10, 10, PI * 0.75, PI * 1.75, PIE);
+        // Top-right dish
+        arc(12, -8, 10, 10, PI * 1.25, PI * 0.25, PIE);
+
+        // Dish mounts (small rectangles)
+        noStroke();
+        fill(60, 65, 70);
+        rect(-14, -6, 4, 8, 2);
+        rect(10, -6, 4, 8, 2);
+
+        // CENTRAL CRYSTAL/BEACON (enhanced with housing)
+        // Crystal housing (metal frame)
+        fill(70, 75, 80);
+        stroke(50, 55, 60);
+        strokeWeight(2);
+        rect(-10, -12, 20, 24, 3);
+
+        // Crystal diamond shape
         fill(255 * pulse, 215 * pulse, 0);
         stroke(200, 150, 0);
         strokeWeight(2);
-
-        // Diamond shape
         beginShape();
         vertex(0, -20);
         vertex(12, 0);
@@ -771,8 +823,14 @@ class BufferTower extends Tower {
         vertex(-6, 0);
         endShape(CLOSE);
 
-        // Network size indicator
-        fill(255);
+        // Energy core (tiny pulsing center)
+        fill(255, 255, 255, 200 * pulse);
+        ellipse(0, 0, 4 * pulse, 4 * pulse);
+
+        // Network size indicator (on platform)
+        fill(220, 220, 220);
+        stroke(60, 60, 60);
+        strokeWeight(1);
         textAlign(CENTER, CENTER);
         textSize(10);
         text(`x${this.networkSize}`, 0, 30);
