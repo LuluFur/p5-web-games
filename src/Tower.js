@@ -415,14 +415,14 @@ class Tower {
 class CannonTower extends Tower {
     constructor(row, col) {
         super(row, col, "Gunner");
-        // Cost: 75 | Meta: 1.0 | Target DPS: 37.5
-        // DPS = 25 * (60/40) = 37.5 ✓
+        // Reliable single-target DPS
+        // DPS = 25 * (60/40) = 37.5
         this.range = 3;
         this.damage = 25;
         this.fireRate = 40;     // Balanced single-target
         this.color = color(100, 120, 100);
-        this.baseCost = 75;
-        this.sellValue = 35;
+        this.baseCost = 0;      // No cost
+        this.sellValue = 0;
     }
 
     draw(x, y, size) {
@@ -433,14 +433,14 @@ class CannonTower extends Tower {
 class DoubleCannon extends Tower {
     constructor(row, col) {
         super(row, col, "Ranger");
-        // Cost: 150 | Meta: 0.9 | Target DPS: 67.5
-        // DPS = 18 * (60/20) = 54 (slightly under for fast-fire tradeoff)
+        // BUFFED: Fast DPS machine
+        // DPS = 26 * (60/18) = 86.7 (powerful rapid fire)
         this.range = 3.5;
-        this.damage = 18;
-        this.fireRate = 20;     // Very fast, lower efficiency
+        this.damage = 26;       // BUFFED from 18
+        this.fireRate = 18;     // BUFFED from 20 (faster)
         this.color = color(50, 80, 150);
-        this.baseCost = 150;
-        this.sellValue = 75;
+        this.baseCost = 0;      // No cost
+        this.sellValue = 0;
     }
 
     draw(x, y, size) {
@@ -451,14 +451,14 @@ class DoubleCannon extends Tower {
 class Flamethrower extends Tower {
     constructor(row, col) {
         super(row, col, "Pyro");
-        // Cost: 200 | Meta: 1.1 | Target DPS: 110 (AOE justifies higher)
-        // DPS = 4 * (60/3) = 80 base, but hits multiple = ~100+ effective
-        this.range = 2.0;       // Short range tradeoff
-        this.damage = 4;
-        this.fireRate = 3;      // Continuous flame
+        // BUFFED: Burn igniter with extended range
+        // DPS = 8 * (60/3) = 160 base + burn DoT
+        this.range = 3.0;       // BUFFED from 2.0 (same as Cannon)
+        this.damage = 8;        // BUFFED from 4
+        this.fireRate = 3;      // Continuous flame stream
         this.color = color(180, 50, 50);
-        this.baseCost = 200;
-        this.sellValue = 100;
+        this.baseCost = 0;      // No cost
+        this.sellValue = 0;
     }
 
     draw(x, y, size) {
@@ -472,22 +472,38 @@ class Flamethrower extends Tower {
         let effectiveDamage = this.networkBonus ? this.damage * this.networkBonus : this.damage;
         this.target.takeDamage(effectiveDamage, this);
 
+        // IGNITE ENEMY - Apply burn status effect
+        if (this.target.ignite) {
+            this.target.ignite(TOWER_CONSTANTS.BURN_DURATION, TOWER_CONSTANTS.BURN_DAMAGE_PER_TICK);
+        }
+
         if (Game.instance) {
             let myX = this.col * 64 + 32;
             let myY = this.row * 64 + 32;
 
-            // Calculate angle TO the target (not from)
+            // Calculate angle TO the target
             let dx = this.target.x - myX;
             let dy = this.target.y - myY;
             let angleToTarget = Math.atan2(dy, dx);
+            let distToTarget = Math.sqrt(dx * dx + dy * dy);
 
-            // Spawn multiple particles in the direction of the target
-            for (let i = 0; i < 3; i++) {
-                let spreadAngle = angleToTarget + random(-0.3, 0.3);
-                let dist = 20 + random(15);
-                let tipX = myX + Math.cos(spreadAngle) * dist;
-                let tipY = myY + Math.sin(spreadAngle) * dist;
-                Game.instance.spawnParticles(tipX, tipY, 1, color(255, 100 + random(150), random(50)));
+            // Create realistic flame stream - particles along the path to target
+            let particleCount = TOWER_CONSTANTS.FLAME_PARTICLE_COUNT;
+            for (let i = 0; i < particleCount; i++) {
+                // Spread particles along the flame stream
+                let distRatio = (i / particleCount) * 0.8; // 80% of distance
+                let spreadAngle = angleToTarget + random(-0.2, 0.2); // Cone spread
+                let particleDist = distToTarget * distRatio + random(-10, 10);
+
+                let particleX = myX + Math.cos(spreadAngle) * particleDist;
+                let particleY = myY + Math.sin(spreadAngle) * particleDist;
+
+                // Varied flame colors (red, orange, yellow)
+                let flameColor = random() < 0.3
+                    ? color(255, 255, random(100, 200))  // Yellow
+                    : color(255, random(50, 150), random(0, 50)); // Red-orange
+
+                Game.instance.spawnParticles(particleX, particleY, 1, flameColor);
             }
         }
     }
@@ -496,14 +512,14 @@ class Flamethrower extends Tower {
 class Electrifier extends Tower {
     constructor(row, col) {
         super(row, col, "Storm");
-        // Cost: 300 | Meta: 1.0 | Target DPS: 150 (chain hits count)
-        // DPS = 12 * (60/25) = 28.8 base, chains add ~3x = ~90 effective
+        // BUFFED: Premium lightning striker with better chains
+        // DPS = 20 * (60/25) = 48 base, 3 chains at 70% = ~120 effective
         this.range = 3.0;
-        this.damage = 12;
+        this.damage = 20;       // BUFFED from 12
         this.fireRate = 25;     // Fast zapping
         this.color = color(20, 20, 80);
-        this.baseCost = 300;
-        this.sellValue = 150;
+        this.baseCost = 0;      // No cost
+        this.sellValue = 0;
         this.chains = [];
         this.laserFrames = 0;
     }
@@ -526,7 +542,7 @@ class Electrifier extends Tower {
 
         while (queue.length > 0) {
             let current = queue.shift();
-            if (current.depth >= 2) continue; // Max 2 chains (was 3)
+            if (current.depth >= TOWER_CONSTANTS.LIGHTNING_MAX_CHAINS) continue; // Max 3 chains (BUFFED)
 
             // Safety check for Game instance
             if (!Game.instance || !Game.instance.enemies) break;
@@ -535,12 +551,12 @@ class Electrifier extends Tower {
                 e !== current.enemy &&
                 e.active &&
                 !visited.has(e) &&
-                dist(e.x, e.y, current.enemy.x, current.enemy.y) < 120 // Shorter chain range (was 150)
+                dist(e.x, e.y, current.enemy.x, current.enemy.y) < TOWER_CONSTANTS.LIGHTNING_CHAIN_RANGE
             );
 
             for (let n of neighbors) {
                 visited.add(n);
-                n.takeDamage(effectiveDamage * 0.5, this); // 50% chain damage (was 70%)
+                n.takeDamage(effectiveDamage * TOWER_CONSTANTS.LIGHTNING_CHAIN_DAMAGE_MULT, this); // 70% chain damage (BUFFED)
                 this.chains.push({ x1: current.enemy.x, y1: current.enemy.y, x2: n.x, y2: n.y });
                 queue.push({ enemy: n, depth: current.depth + 1 });
                 if (queue.length > 5) break;
@@ -592,14 +608,14 @@ class Electrifier extends Tower {
 class SniperTower extends Tower {
     constructor(row, col) {
         super(row, col, "Sniper");
-        // Cost: 250 | Meta: 0.85 | Target DPS: 106 (range compensates)
+        // Long-range precision striker
         // DPS = 100 * (60/90) = 66.7 (lower DPS but huge range)
         this.range = 6;         // Longest range
         this.damage = 100;
         this.fireRate = 90;     // Slow but powerful
         this.color = color(60, 50, 30);
-        this.baseCost = 250;
-        this.sellValue = 125;
+        this.baseCost = 0;      // No cost
+        this.sellValue = 0;
         this.laserFrames = 0;
         this.lastTarget = null;
     }
@@ -649,21 +665,21 @@ class SniperTower extends Tower {
 class BufferTower extends Tower {
     constructor(row, col) {
         super(row, col, "Buffer");
-        // Cost: 100 | Doesn't attack, provides buffs
-        this.range = 0;
-        this.damage = 0;
-        this.fireRate = 999;
+        // BUFFED: Weak attack + 10% buff per tower
+        this.range = 1.5;       // BUFFED from 0 (can now attack)
+        this.damage = 5;        // BUFFED from 0 (weak attack)
+        this.fireRate = 60;     // BUFFED from 999 (slow but attacks)
         this.color = color(255, 215, 0);  // Gold
-        this.baseCost = 100;
-        this.sellValue = 50;
+        this.baseCost = 0;      // No cost
+        this.sellValue = 0;
         this.networkSize = 0;
         this.buffedTowers = [];
     }
 
-    // Buffer doesn't attack (network calculated on tower place/sell events)
+    // Buffer now attacks like normal towers + provides buffs
     update(enemies) {
-        // Network is now calculated on-demand by TowerManager
-        // No periodic recalculation needed (performance optimization)
+        super.update(enemies);  // Use normal tower update (finds targets, shoots)
+        // Network is calculated on-demand by TowerManager
     }
 
     // Find all connected towers (orthogonally adjacent)
@@ -706,8 +722,8 @@ class BufferTower extends Tower {
         this.buffedTowers = towers.filter(t => t !== this);
 
         // Apply buffs based on network size
-        // Each tower in network gets: +5% damage per connected tower
-        let bonusMultiplier = 1 + (this.networkSize * 0.05);
+        // Each tower in network gets: +10% damage per connected tower (BUFFED from 5%)
+        let bonusMultiplier = 1 + (this.networkSize * TOWER_CONSTANTS.BUFFER_DAMAGE_BONUS_PER_TOWER);
 
         for (let tower of this.buffedTowers) {
             tower.networkBonus = bonusMultiplier;

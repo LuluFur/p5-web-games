@@ -373,11 +373,23 @@ class TowerManager {
 
         if (!grid || !economy) return false;
 
-        // Check gold
-        if (!economy.spendGold(cost)) {
-            console.log("Not enough gold to spawn tower!");
-            if (window.Sounds) window.Sounds.play('error', 0.3);
-            return false;
+        // During tutorial spawn_towers step, make spawning free
+        let isTutorialSpawnStep = this.game.tutorialManager &&
+                                  this.game.tutorialManager.active &&
+                                  this.game.tutorialManager.currentStep &&
+                                  this.game.tutorialManager.currentStep.id === 'spawn_towers';
+
+        // Track if we charged gold (for refund logic)
+        let chargedGold = false;
+
+        // Check gold (tutorial spawn step is free, otherwise charge normally)
+        if (!isTutorialSpawnStep) {
+            if (!economy.spendGold(cost)) {
+                console.log("Not enough gold to spawn tower!");
+                if (window.Sounds) window.Sounds.play('error', 0.3);
+                return false;
+            }
+            chargedGold = true;
         }
 
         // Find all valid spawn locations (buildable tiles that don't block path)
@@ -397,7 +409,7 @@ class TowerManager {
 
         if (validLocations.length === 0) {
             console.log("No valid locations to spawn tower!");
-            economy.addGold(cost); // Refund
+            if (chargedGold) economy.addGold(cost); // Refund only if we charged
             if (window.Sounds) window.Sounds.play('error', 0.3);
             return false;
         }
@@ -421,15 +433,15 @@ class TowerManager {
         // Create tower
         let newTower = this.createTower(randomType, location.r, location.c);
         if (!newTower) {
-            economy.addGold(cost); // Refund
+            if (chargedGold) economy.addGold(cost); // Refund only if we charged
             return false;
         }
 
         // Place on grid
         grid.map[location.r][location.c] = newTower;
 
-        // Validate path still exists
-        if (!this.validatePaths(location, cost)) {
+        // Validate path still exists (pass 0 if tutorial so validatePaths doesn't refund)
+        if (!this.validatePaths(location, chargedGold ? cost : 0)) {
             return false;
         }
 

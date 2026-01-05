@@ -936,19 +936,23 @@ class TutorialManager {
                 }
             }
 
-            // Find towers that have a match and create arrows between pairs
+            // Find the FIRST pair of mergeable towers and create ONE arrow
             for (let key in towerTypes) {
                 if (towerTypes[key].length >= 2) {
                     let group = towerTypes[key];
-                    towers.push(...group.map(t => ({ r: t.r, c: t.c })));
 
-                    // Create arrows between mergeable pairs
-                    for (let i = 0; i < group.length - 1; i++) {
-                        arrows.push({
-                            from: { r: group[i].r, c: group[i].c },
-                            to: { r: group[i + 1].r, c: group[i + 1].c }
-                        });
-                    }
+                    // Only highlight the first 2 towers in this group
+                    towers.push({ r: group[0].r, c: group[0].c });
+                    towers.push({ r: group[1].r, c: group[1].c });
+
+                    // Create ONE arrow from first tower to second tower
+                    arrows.push({
+                        from: { r: group[0].r, c: group[0].c },
+                        to: { r: group[1].r, c: group[1].c }
+                    });
+
+                    // Only use the first mergeable pair, then stop
+                    break;
                 }
             }
 

@@ -22,6 +22,11 @@ class Enemy {
         // Health bar visibility (only show after taking damage)
         this.hasBeenDamaged = false;
 
+        // BURN STATUS EFFECT
+        this.burning = false;
+        this.burnTimer = 0;
+        this.burnDamagePerTick = 0;
+
         this.healthBar = new HealthBar(this, 30, 5, -25);
     }
 
@@ -102,6 +107,35 @@ class Enemy {
         // Footstep Particles (Dust)
         if (frameCount % 15 === 0 && Game.instance) {
             Game.instance.spawnParticles(this.x, this.y + 20, 1, color(100, 100, 100, 150));
+        }
+
+        // BURN STATUS EFFECT PROCESSING
+        if (this.burning && this.state !== 'DYING') {
+            this.burnTimer--;
+
+            // Apply burn damage every frame (use takeDamage for proper death handling)
+            if (frameCount % 5 === 0) {  // Apply damage every 5 frames to reduce spam
+                this.takeDamage(this.burnDamagePerTick * 5, null);  // Batch damage
+            }
+
+            // Spawn fire particles while burning
+            if (frameCount % 3 === 0 && Game.instance) {
+                let flameColor = random() < 0.5
+                    ? color(255, random(100, 200), 0, 200)  // Orange
+                    : color(255, 50, 0, 200);                // Red
+                Game.instance.spawnParticles(
+                    this.x + random(-10, 10),
+                    this.y + random(-15, 5),
+                    1,
+                    flameColor
+                );
+            }
+
+            // Stop burning when timer expires
+            if (this.burnTimer <= 0) {
+                this.burning = false;
+                this.burnDamagePerTick = 0;
+            }
         }
     }
 
@@ -348,6 +382,19 @@ class Enemy {
 
             // No longer grant XP - merge system replaced XP leveling
         }
+    }
+
+    // IGNITE/BURN MECHANIC
+    ignite(duration, damagePerTick) {
+        // Set or refresh burn status
+        this.burning = true;
+        this.burnTimer = duration;
+        this.burnDamagePerTick = damagePerTick;
+    }
+
+    // Helper method for towers to check if enemy is burning
+    isBurning() {
+        return this.burning;
     }
 
     // ===========================================
