@@ -1,21 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Defense</title>
+    <title>Merge Defence</title>
     <link rel="stylesheet" href="style.css">
-    
-    <!-- p5.js 2.0 Beta -->
-    <script src="https://cdn.jsdelivr.net/npm/p5@2.0.0-beta.2/lib/p5.min.js"></script>
-    
+
+    <!-- p5.js 1.10.0 Stable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.10.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.10.0/addons/p5.sound.min.js"></script>
+
     <!-- Game Scripts -->
+    <!-- Constants (load first) -->
+    <script src="src/constants/GameConstants.js"></script>
+    <script src="src/constants/TerrainConstants.js"></script>
+
+    <!-- Utilities (load first, no dependencies) -->
+    <script src="src/utils/GameMath.js"></script>
+    <script src="src/utils/UIHelper.js"></script>
+    <script src="src/utils/TextAnimator.js"></script>
+    <script src="src/utils/RichTextParser.js"></script>
+
+    <!-- Data (level definitions, configs) -->
+    <script src="src/data/LevelData.js"></script>
+
+    <!-- Core Systems -->
+    <script src="src/AssetLoader.js"></script>
+    <script src="src/Grid.js"></script>
+    <script src="src/Pathfinder.js"></script>
+    <script src="src/Tower.js"></script>
+    <script src="src/Projectile.js"></script>
+    <script src="src/HealthBar.js"></script>
+    <script src="src/Particle.js"></script>
+    <script src="src/CoinParticle.js"></script>
+
+    <!-- Enemies -->
+    <script src="src/Enemy.js"></script>
+    <script src="src/Vampire.js"></script>
+    <script src="src/Skeleton.js"></script>
+    <script src="src/Wraith.js"></script>
+    <script src="src/Goblin.js"></script>
+    <script src="src/Ogre.js"></script>
+    <script src="src/Necromancer.js"></script>
+    <script src="src/Ghost.js"></script>
+    <script src="src/Golem.js"></script>
+    <script src="src/Slime.js"></script>
+    <script src="src/Wolf.js"></script>
+
+    <!-- Managers -->
+    <script src="src/managers/EventManager.js"></script>
+    <script src="src/managers/LevelManager.js"></script>
+    <script src="src/managers/StatsManager.js"></script>
+    <script src="src/managers/EconomyManager.js"></script>
+    <script src="src/managers/ObjectManager.js"></script>
+    <script src="src/managers/TowerManager.js"></script>
+    <script src="src/managers/ParticleManager.js"></script>
+    <script src="src/managers/WaveManager.js"></script>
+    <script src="src/managers/DialogueManager.js"></script>
+    <script src="src/managers/InputManager.js"></script>
+    <script src="src/managers/DisplayManager.js"></script>
+    <script src="src/managers/TutorialManager.js"></script>
+    <script src="src/managers/SpellManager.js"></script>
+
+    <!-- Renderers -->
+    <script src="src/renderers/ScreenEffectRenderer.js"></script>
+    <script src="src/renderers/DebugRenderer.js"></script>
+    <script src="src/renderers/DisplayRenderer.js"></script>
+    <script src="src/renderers/SpriteRenderer.js"></script>
+
+    <!-- Game Systems -->
+    <script src="src/Decor.js"></script>
+    <script src="src/SoundManager.js"></script>
+    <script src="src/UI.js"></script>
+    <script src="src/WaveGenerator.js"></script>
+    <script src="src/WaveDialogue.js"></script>
+    <script src="src/WaveConfig.js"></script>
     <script src="src/Game.js"></script>
     <script src="sketch.js"></script>
 </head>
+
 <body>
     <main>
         <!-- Canvas will be injected here by p5.js -->
     </main>
 </body>
+
 </html>
