@@ -448,11 +448,11 @@ class Game {
         }
 
         // Update visibility (fog of war) for all players
-        console.time('UPDATE_VISIBILITY');
+        const visStart = performance.now();
         if (this.visibilityManager) {
             this.visibilityManager.updateVisibility(this.players, this.unitManager, this.buildingManager);
         }
-        console.timeEnd('UPDATE_VISIBILITY');
+        const visTime = performance.now() - visStart;
 
         // Check victory/defeat conditions
         this.checkRTSEndConditions();
@@ -463,7 +463,7 @@ class Game {
             const fps = Math.round(frameRate());
             const unitCount = this.unitManager ? this.unitManager.units.length : 0;
             const buildingCount = this.buildingManager ? this.buildingManager.buildings.length : 0;
-            console.log(`[PERF] FPS: ${fps} | Units: ${unitCount} | Buildings: ${buildingCount}`);
+            console.log(`[PERF] FPS: ${fps} | Units: ${unitCount} | Buildings: ${buildingCount} | Visibility: ${visTime.toFixed(2)}ms`);
         }
     }
 
