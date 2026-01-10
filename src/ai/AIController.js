@@ -61,7 +61,8 @@ const AI_STATE = {
     EXPANDING: 'EXPANDING',     // Building economy
     MASSING: 'MASSING',         // Building army
     ATTACKING: 'ATTACKING',     // Attacking enemy
-    DEFENDING: 'DEFENDING'      // Under attack, defending
+    DEFENDING: 'DEFENDING',     // Under attack, defending
+    EXPLORING: 'EXPLORING'      // No enemies found, explore map
 };
 
 class AIController {
@@ -94,6 +95,12 @@ class AIController {
         this.knownEnemyBuildings = [];
         this.knownEnemyUnits = [];
         this.lastScoutTime = 0;
+
+        // Exploration (when no enemies found)
+        this.explorationWaypoints = [];
+        this.currentExplorationIndex = 0;
+        this.explorationTimer = 0;
+        this.generateExplorationWaypoints();
 
         // Initialize build order based on personality
         this.initializeBuildOrder();
@@ -254,6 +261,10 @@ class AIController {
 
             case AI_STATE.DEFENDING:
                 this.updateDefendPhase(deltaTime);
+                break;
+
+            case AI_STATE.EXPLORING:
+                this.updateExploringPhase(deltaTime);
                 break;
         }
 
@@ -618,6 +629,15 @@ class AIController {
             }
         }
 
+        // Switch to exploring if we have units and no enemies found yet
+        if (armySize >= 3 && this.attackTimer >= this.difficultySettings.attackDelay / 2) {
+            if (this.findAttackTarget() === null) {
+                // No enemies found - start exploring to find them
+                this.state = AI_STATE.EXPLORING;
+                return;
+            }
+        }
+
         // Attack when ready
         if (this.attackTimer >= this.difficultySettings.attackDelay) {
             this.state = AI_STATE.ATTACKING;
@@ -912,6 +932,87 @@ class AIController {
         // Return to previous state if threat cleared
         if (!this.isUnderAttack()) {
             this.state = AI_STATE.MASSING;
+        }
+    }
+
+    /**
+     * Update during exploration phase - send units to discover enemy positions
+     * Units will explore waypoints around the map
+     */
+    updateExploringPhase(deltaTime) {
+        // Set units to passive stance while exploring
+        this.setUnitStance(RTS_UNIT_STANCES.HOLD);
+
+        // Use cache if available
+        let units;
+        if (this._unitCache && this._unitCache.army) {
+            units = this._unitCache.army.filter(u => !u.isDead());
+        } else {
+            if (!Game.instance || !Game.instance.unitManager) return;
+            units = Game.instance.unitManager.getUnitsByPlayer(this.player)
+                .filter(u => !u.isDead() && u.config?.type?.toUpperCase() !== 'HARVESTER');
+        }
+
+        if (units.length === 0) return;
+
+        // Cycle through waypoints
+        this.explorationTimer += deltaTime;
+        if (this.explorationTimer > 2) { // Update exploration every 2 seconds
+            this.explorationTimer = 0;
+
+            // Send groups of units to different waypoints
+            const unitsPerGroup = Math.max(1, Math.ceil(units.length / this.explorationWaypoints.length));
+
+            for (let i = 0; i < units.length; i++) {
+                const unit = units[i];
+                if (!unit.currentCommand || unit.currentCommand.isComplete) {
+                    // Assign waypoint based on unit index
+                    const waypointIndex = Math.floor(i / unitsPerGroup) % this.explorationWaypoints.length;
+                    const waypoint = this.explorationWaypoints[waypointIndex];
+
+                    if (waypoint && typeof MoveCommand !== 'undefined') {
+                        const cmd = new MoveCommand(unit, waypoint.x, waypoint.y);
+                        unit.issueCommand(cmd);
+                    }
+                }
+            }
+        }
+
+        // Check if any enemies found - switch to attacking
+        const hasVisibleEnemies = this.findAttackTarget() !== null;
+        if (hasVisibleEnemies) {
+            this.state = AI_STATE.ATTACKING;
+            this.explorationTimer = 0;
+        }
+
+        // Or return to massing if army gets small
+        if (this.getArmySize() < 3) {
+            this.state = AI_STATE.MASSING;
+        }
+    }
+
+    /**
+     * Generate exploration waypoints across the map
+     * Creates a grid of waypoints for units to patrol
+     */
+    generateExplorationWaypoints() {
+        const mapWidth = 64 * 32; // 64 cells * 32px = 2048px
+        const mapHeight = 64 * 32;
+        const spacing = 512; // 16 cells = 512px between waypoints
+
+        this.explorationWaypoints = [];
+
+        for (let x = spacing / 2; x < mapWidth; x += spacing) {
+            for (let y = spacing / 2; y < mapHeight; y += spacing) {
+                this.explorationWaypoints.push({ x, y });
+            }
+        }
+
+        // Shuffle waypoints for variety
+        for (let i = this.explorationWaypoints.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.explorationWaypoints[i], this.explorationWaypoints[j]] =
+            [this.explorationWaypoints[j], this.explorationWaypoints[i]];
         }
     }
 
