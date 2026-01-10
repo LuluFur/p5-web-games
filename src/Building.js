@@ -1028,7 +1028,7 @@ class ConstructionYard extends Building {
             buildTime: 0,
             powerOutput: 0,
             powerConsumption: 0,
-            visionRange: 216  // Moderate vision (6.75 cells - half tile increase)
+            visionRange: 432  // 2x vision (13.5 cells)
         });
 
         // ConYard starts complete
