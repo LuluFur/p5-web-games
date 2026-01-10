@@ -315,24 +315,27 @@ class BuildingManager {
      * Optimized to use bounding box overlap instead of O(n²) cell iteration
      */
     isWithinBuildRadius(gx, gy, width, height, buildings) {
-        // Expand new building bounds by build radius
-        const minX = gx - this.buildRadius;
-        const maxX = gx + width - 1 + this.buildRadius;
-        const minY = gy - this.buildRadius;
-        const maxY = gy + height - 1 + this.buildRadius;
+        // Check if any cell of the new building is within Euclidean distance of existing buildings
+        const buildRadiusSq = this.buildRadius * this.buildRadius;
 
         for (const building of buildings) {
             if (!building.isComplete) continue;
 
-            // Check if expanded bounds overlap with existing building
-            const bMinX = building.gridX;
-            const bMaxX = building.gridX + building.width - 1;
-            const bMinY = building.gridY;
-            const bMaxY = building.gridY + building.height - 1;
+            // Check Euclidean distance from new building cells to existing building cells
+            for (let newY = gy; newY < gy + height; newY++) {
+                for (let newX = gx; newX < gx + width; newX++) {
+                    for (let existingY = building.gridY; existingY < building.gridY + building.height; existingY++) {
+                        for (let existingX = building.gridX; existingX < building.gridX + building.width; existingX++) {
+                            const dx = newX - existingX;
+                            const dy = newY - existingY;
+                            const distSq = dx * dx + dy * dy;
 
-            // Rectangle overlap test
-            if (maxX >= bMinX && minX <= bMaxX && maxY >= bMinY && minY <= bMaxY) {
-                return true;
+                            if (distSq <= buildRadiusSq) {
+                                return true;
+                            }
+                        }
+                    }
+                }
             }
         }
         return false;
@@ -714,16 +717,19 @@ class BuildingManager {
                     const checkX = building.gridX + dx;
                     const checkY = building.gridY + dy;
 
-                    // Check Manhattan distance to any building cell
-                    let minDist = Infinity;
+                    // Check Euclidean distance to any building cell (same as sight range)
+                    let minDistSq = Infinity;
+                    const buildRadiusSq = this.buildRadius * this.buildRadius;
                     for (let by = 0; by < building.height; by++) {
                         for (let bx = 0; bx < building.width; bx++) {
-                            const dist = Math.abs(dx - bx) + Math.abs(dy - by);
-                            minDist = Math.min(minDist, dist);
+                            const dxDiff = dx - bx;
+                            const dyDiff = dy - by;
+                            const distSq = dxDiff * dxDiff + dyDiff * dyDiff;
+                            minDistSq = Math.min(minDistSq, distSq);
                         }
                     }
 
-                    if (minDist <= this.buildRadius) {
+                    if (minDistSq <= buildRadiusSq) {
                         validCells.add(`${checkX},${checkY}`);
                     }
                 }
@@ -810,16 +816,19 @@ class BuildingManager {
                 const checkX = building.gridX + dx;
                 const checkY = building.gridY + dy;
 
-                // Check Manhattan distance to any building cell
-                let minDist = Infinity;
+                // Check Euclidean distance to any building cell (same as sight range)
+                let minDistSq = Infinity;
+                const buildRadiusSq = this.buildRadius * this.buildRadius;
                 for (let by = 0; by < building.height; by++) {
                     for (let bx = 0; bx < building.width; bx++) {
-                        const dist = Math.abs(dx - bx) + Math.abs(dy - by);
-                        minDist = Math.min(minDist, dist);
+                        const dxDiff = dx - bx;
+                        const dyDiff = dy - by;
+                        const distSq = dxDiff * dxDiff + dyDiff * dyDiff;
+                        minDistSq = Math.min(minDistSq, distSq);
                     }
                 }
 
-                if (minDist <= this.buildRadius) {
+                if (minDistSq <= buildRadiusSq) {
                     validCells.add(`${checkX},${checkY}`);
                 }
             }
