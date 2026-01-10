@@ -1408,14 +1408,6 @@ class Game {
         // F to toggle fog of war visualization
         if (key === 'f' || key === 'F') {
             this.showFogOfWar = !this.showFogOfWar;
-
-            // Seed explored cells with current visible cells when FOW is first enabled
-            if (this.showFogOfWar && this.localPlayer && this.localPlayer.exploredCells.size === 0) {
-                for (const visibleCell of this.localPlayer.visibleCells) {
-                    this.localPlayer.exploredCells.add(visibleCell);
-                }
-            }
-
             return;
         }
 

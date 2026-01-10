@@ -506,52 +506,43 @@ class VisibilityManager {
      * @param {object} grid - The grid for reference
      */
     drawFogOfWar(player, grid) {
-        if (!player || !player.visibleCells || !player.exploredCells) {
+        if (!player || !player.visibleCells) {
             console.warn("FOW: Missing player or cell data");
             return;
         }
 
         const cellSize = grid?.cellSize || RTS_GRID?.CELL_SIZE || 32;
-
-
-        // Skip rendering if no explored cells (common early game)
-        if (player.exploredCells.size === 0) {
-            return;
-        }
-
-        // Initialize cache if needed
-        if (!player.fowCache) {
-            player.fowCache = {
-                exploredCount: player.exploredCells.size,
-                visibleCount: player.visibleCells.size,
-                lastFrameExploredCount: -1
-            };
-        }
-
-        // Update counts
-        player.fowCache.exploredCount = player.exploredCells.size;
-        player.fowCache.visibleCount = player.visibleCells.size;
+        const cols = grid?.cols || RTS_GRID?.DEFAULT_COLS || 64;
+        const rows = grid?.rows || RTS_GRID?.DEFAULT_ROWS || 64;
 
         push();
         noStroke();
-        fill(0, 0, 0, 100); // Dark semi-transparent overlay
 
-        // Batch render: Collect rectangles and draw them more efficiently
-        // Instead of drawing one by one, collect coordinates for batch rendering
-        const shroudedCells = [];
-        for (const cellKey of player.exploredCells) {
-            if (!player.visibleCells.has(cellKey)) {
-                shroudedCells.push(cellKey);
+        // Draw full map shroud initially (unexplored = full black)
+        fill(0, 0, 0, 180); // Dark semi-transparent overlay
+        for (let gx = 0; gx < cols; gx++) {
+            for (let gy = 0; gy < rows; gy++) {
+                const cellKey = `${gx},${gy}`;
+                // Only draw shroud on cells NOT currently visible
+                if (!player.visibleCells.has(cellKey)) {
+                    const x = gx * cellSize;
+                    const y = gy * cellSize;
+                    rect(x, y, cellSize, cellSize);
+                }
             }
         }
 
-        // Draw all shrouded cells
-        // p5.js is optimized for multiple rect calls in sequence
-        for (const cellKey of shroudedCells) {
-            const [gridX, gridY] = cellKey.split(',').map(Number);
-            const x = gridX * cellSize;
-            const y = gridY * cellSize;
-            rect(x, y, cellSize, cellSize);
+        // Draw lighter shroud on explored-but-not-visible cells
+        if (player.exploredCells && player.exploredCells.size > 0) {
+            fill(0, 0, 0, 80); // Lighter overlay for explored areas
+            for (const cellKey of player.exploredCells) {
+                if (!player.visibleCells.has(cellKey)) {
+                    const [gridX, gridY] = cellKey.split(',').map(Number);
+                    const x = gridX * cellSize;
+                    const y = gridY * cellSize;
+                    rect(x, y, cellSize, cellSize);
+                }
+            }
         }
 
         pop();
