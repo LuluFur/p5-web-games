@@ -793,6 +793,77 @@ class BuildingManager {
     }
 
     /**
+     * Draw build radius for a selected building
+     * Shows the green outline area where new buildings can be placed
+     * @param {Building} building - The selected building
+     */
+    drawBuildRadiusForSelectedBuilding(building) {
+        if (!building) return;
+
+        const grid = this.game.grid;
+        const cellSize = grid.cellSize;
+        const validCells = new Set();
+
+        // Add all cells within build radius of this building
+        for (let dy = -this.buildRadius - 2; dy <= building.height + this.buildRadius + 2; dy++) {
+            for (let dx = -this.buildRadius - 2; dx <= building.width + this.buildRadius + 2; dx++) {
+                const checkX = building.gridX + dx;
+                const checkY = building.gridY + dy;
+
+                // Check Manhattan distance to any building cell
+                let minDist = Infinity;
+                for (let by = 0; by < building.height; by++) {
+                    for (let bx = 0; bx < building.width; bx++) {
+                        const dist = Math.abs(dx - bx) + Math.abs(dy - by);
+                        minDist = Math.min(minDist, dist);
+                    }
+                }
+
+                if (minDist <= this.buildRadius) {
+                    validCells.add(`${checkX},${checkY}`);
+                }
+            }
+        }
+
+        push();
+
+        // Draw filled valid area with transparency
+        noStroke();
+        fill(50, 200, 100, 20);
+        for (const cellKey of validCells) {
+            const [cx, cy] = cellKey.split(',').map(Number);
+            rect(cx * cellSize, cy * cellSize, cellSize, cellSize);
+        }
+
+        // Draw outline by finding edge cells
+        stroke(100, 255, 150, 150);
+        strokeWeight(2);
+        noFill();
+
+        for (const cellKey of validCells) {
+            const [cx, cy] = cellKey.split(',').map(Number);
+            const x = cx * cellSize;
+            const y = cy * cellSize;
+
+            // Check each edge - draw if neighbor is not in valid set
+            if (!validCells.has(`${cx},${cy - 1}`)) {
+                line(x, y, x + cellSize, y); // Top edge
+            }
+            if (!validCells.has(`${cx},${cy + 1}`)) {
+                line(x, y + cellSize, x + cellSize, y + cellSize); // Bottom edge
+            }
+            if (!validCells.has(`${cx - 1},${cy}`)) {
+                line(x, y, x, y + cellSize); // Left edge
+            }
+            if (!validCells.has(`${cx + 1},${cy}`)) {
+                line(x + cellSize, y, x + cellSize, y + cellSize); // Right edge
+            }
+        }
+
+        pop();
+    }
+
+    /**
      * Draw red warning when placing outside build range
      */
     drawOutOfRangeWarning() {
