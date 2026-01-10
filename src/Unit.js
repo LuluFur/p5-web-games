@@ -753,6 +753,9 @@ class Unit {
     // ===========================================
 
     draw() {
+        // Don't draw if completely faded out
+        if (this.fadeOutAlpha <= 0) return;
+        // Don't draw if inactive and not in death animation
         if (!this.active && this.state !== RTS_UNIT_STATES.DYING) return;
 
         push();
