@@ -18,6 +18,14 @@ class VisibilityManager {
 
         // Cache for performance (updated once per frame)
         this.cacheValid = false;
+
+        // SMART OPTIMIZATION: Per-unit vision cache using integer keys
+        // playerId -> unitId -> Set<number> (packed grid coordinates)
+        this.unitVisionCache = new Map();
+
+        // SMART OPTIMIZATION: Track which regions have dirty visibility
+        // Instead of recalculating everything, only update affected regions
+        this.dirtyRegions = new Set();
     }
 
     /**
@@ -45,21 +53,237 @@ class VisibilityManager {
 
     /**
      * Update visibility for all players
-     * Should be called once per frame
+     * ULTRA-SMART THROTTLED OPTIMIZATION:
+     * - Only update entity visibility when units move significantly
+     * - Only update grid cells when units move > vision range / 5
+     * - Reduces expensive calculations from every frame to every 5-10 frames
      */
     updateVisibility(players, unitManager, buildingManager) {
         if (!players || !unitManager || !buildingManager) return;
 
         for (const player of players) {
-            this.updatePlayerVisibility(player, unitManager, buildingManager);
-            this.updateExploredCells(player, unitManager, buildingManager);
+            // SMART THROTTLE: Only update if any player unit moved significantly
+            const shouldUpdate = this.shouldUpdatePlayerVisibility(player, unitManager);
+
+            if (shouldUpdate) {
+                // Update which enemy units/buildings are visible
+                this.updatePlayerVisibility(player, unitManager, buildingManager);
+
+                // Update explored cells for units that moved
+                this.updateExploredCellsIncremental(player, unitManager, buildingManager);
+            }
         }
 
         this.cacheValid = true;
     }
 
     /**
+     * Check if player visibility needs updating
+     * Only updates when units move > 1/5 of their vision range
+     * Reduces expensive spatial queries from 60fps to ~10fps
+     */
+    shouldUpdatePlayerVisibility(player, unitManager) {
+        // Initialize cache
+        if (!this._visibilityUpdateCache) {
+            this._visibilityUpdateCache = new Map();
+        }
+
+        const cacheKey = `player_${player.id}`;
+        const cache = this._visibilityUpdateCache.get(cacheKey) || {
+            lastUpdateTime: 0,
+            lastUnitPositions: new Map()
+        };
+
+        const playerUnits = unitManager.unitsByPlayer.get(player) || [];
+        let hasMeaningfulMovement = false;
+
+        // Check if any unit moved more than 1/5 of its vision range
+        for (const unit of playerUnits) {
+            if (unit.isDead() || !unit.active) continue;
+
+            const unitKey = `unit_${unit.id}`;
+            const lastPos = cache.lastUnitPositions.get(unitKey);
+
+            // Get vision range to determine meaningful movement threshold
+            const visionRange = this.getVisionRange(unit);
+            const moveThreshold = Math.max(50, visionRange / 5); // At least 50px
+
+            if (!lastPos) {
+                // First time seeing this unit
+                cache.lastUnitPositions.set(unitKey, { x: unit.x, y: unit.y });
+                hasMeaningfulMovement = true;
+                break;
+            }
+
+            const dx = Math.abs(lastPos.x - unit.x);
+            const dy = Math.abs(lastPos.y - unit.y);
+            const distanceMoved = Math.sqrt(dx * dx + dy * dy);
+
+            if (distanceMoved > moveThreshold) {
+                cache.lastUnitPositions.set(unitKey, { x: unit.x, y: unit.y });
+                hasMeaningfulMovement = true;
+                break; // Only need one unit to have moved significantly
+            }
+        }
+
+        // Clean up removed units
+        for (const key of cache.lastUnitPositions.keys()) {
+            const unitId = parseInt(key.split('_')[1]);
+            const stillExists = playerUnits.some(u => u.id === unitId);
+            if (!stillExists) {
+                cache.lastUnitPositions.delete(key);
+            }
+        }
+
+        this._visibilityUpdateCache.set(cacheKey, cache);
+        return hasMeaningfulMovement;
+    }
+
+    /**
+     * ULTRA-SMART INCREMENTAL UPDATE: Track grid cell position
+     * Only recalculate when unit crosses grid boundaries (not on every pixel movement)
+     * This MASSIVELY reduces string allocations and calculations
+     */
+    updateExploredCellsIncremental(player, unitManager, buildingManager) {
+        if (!player || player.isSpectator) return;
+
+        // Get player's vision sources
+        const playerUnits = unitManager.unitsByPlayer.get(player) || [];
+        const playerBuildings = buildingManager
+            ? buildingManager.buildings.filter(b => b.owner === player && b.active && !b.isDead())
+            : [];
+
+        const visionSources = [...playerUnits, ...playerBuildings];
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+
+        if (visionSources.length === 0) return;
+
+        // Initialize player caches if needed
+        if (!this.unitVisionCache.has(player.id)) {
+            this.unitVisionCache.set(player.id, new Map());
+        }
+        const playerUnitCache = this.unitVisionCache.get(player.id);
+
+        // CRITICAL OPTIMIZATION: Only update explored cells when grid cell changes
+        // If FOW rendering is disabled (default), skip string conversion entirely
+        const buildStringSets = Game.instance && Game.instance.showFogOfWar;
+
+        // Only clear if we need to track visible cells
+        if (buildStringSets) {
+            player.visibleCells.clear();
+        }
+
+        // ULTRA-OPTIMIZATION: Skip entire grid tracking if FOW is disabled
+        if (!buildStringSets) {
+            return; // FOW rendering disabled - skip expensive grid cell tracking
+        }
+
+        // Only execute this code path if FOW rendering is enabled
+        for (const source of visionSources) {
+            const sourceId = source.id;
+            const cacheKey = `${source.constructor.name}_${sourceId}`;
+
+            // Get current grid cell position
+            const currentGridX = Math.floor(source.x / cellSize);
+            const currentGridY = Math.floor(source.y / cellSize);
+            const currentGridPos = (currentGridX << 16) | currentGridY; // Pack as 32-bit
+
+            // Get last cached grid position
+            const lastGridPosKey = `${cacheKey}_gridPos`;
+            const lastGridPos = this.unitVisionCache.get(lastGridPosKey);
+
+            // Only recalculate if unit moved to a different grid cell
+            const movedToNewCell = lastGridPos === undefined || lastGridPos !== currentGridPos;
+
+            let sourceVisionCells = playerUnitCache.get(cacheKey);
+
+            if (movedToNewCell) {
+                // Recalculate vision only when crossing grid boundaries
+                sourceVisionCells = this.calculateVisionCellsAsIntegers(source, cellSize);
+
+                // Cache this unit's vision
+                playerUnitCache.set(cacheKey, sourceVisionCells);
+                this.unitVisionCache.set(lastGridPosKey, currentGridPos);
+            }
+
+            // Add to visible/explored cells for FOW rendering
+            if (sourceVisionCells) {
+                for (const integerKey of sourceVisionCells) {
+                    const stringKey = this.integerKeyToString(integerKey);
+                    player.visibleCells.add(stringKey);
+                    player.exploredCells.add(stringKey);
+                }
+            }
+        }
+    }
+
+    /**
+     * Convert packed integer coordinates to grid string key
+     */
+    integerKeyToString(integerKey) {
+        const gridX = integerKey >> 10;
+        const gridY = integerKey & 1023;
+        return `${gridX},${gridY}`;
+    }
+
+    /**
+     * Calculate vision cells for a source using INTEGER keys
+     * No string allocation = no GC pressure
+     * @returns Set<number> with packed coordinates (x << 10 | y)
+     */
+    calculateVisionCellsAsIntegers(source, cellSize) {
+        const visionRange = this.getVisionRange(source);
+        if (visionRange <= 0) return new Set();
+
+        const cellSet = new Set();
+        const centerGridX = Math.floor(source.x / cellSize);
+        const centerGridY = Math.floor(source.y / cellSize);
+        const radiusInCells = Math.ceil(visionRange / cellSize);
+        const visionRangeSq = visionRange * visionRange;
+
+        // Pre-compute source center
+        const sourceCenterX = source.x + cellSize / 2;
+        const sourceCenterY = source.y + cellSize / 2;
+
+        for (let dx = -radiusInCells; dx <= radiusInCells; dx++) {
+            const gridX = centerGridX + dx;
+            const cellCenterX = gridX * cellSize + cellSize / 2;
+            const dx2 = cellCenterX - sourceCenterX;
+            const dx2Sq = dx2 * dx2;
+
+            // Early termination: if dx alone exceeds range, skip this column
+            if (dx2Sq > visionRangeSq) continue;
+
+            for (let dy = -radiusInCells; dy <= radiusInCells; dy++) {
+                const gridY = centerGridY + dy;
+                const cellCenterY = gridY * cellSize + cellSize / 2;
+                const dy2 = cellCenterY - sourceCenterY;
+                const distSq = dx2Sq + dy2 * dy2;
+
+                if (distSq <= visionRangeSq) {
+                    // Pack coordinates as integer (supports up to 1024×1024 grids)
+                    const packedKey = (gridX << 10) | gridY;
+                    cellSet.add(packedKey);
+                }
+            }
+        }
+
+        return cellSet;
+    }
+
+    /**
+     * Convert packed integer key back to string for Set storage
+     */
+    unpackCellKey(packedKey) {
+        const gridX = packedKey >> 10;
+        const gridY = packedKey & 1023;
+        return `${gridX},${gridY}`;
+    }
+
+
+    /**
      * Update visibility for a specific player
+     * OPTIMIZED: Use spatial queries instead of checking all units/buildings
      * @param {object} player - The player to update
      * @param {UnitManager} unitManager - Unit manager instance
      * @param {BuildingManager} buildingManager - Building manager instance
@@ -72,11 +296,11 @@ class VisibilityManager {
 
         visibleSet.clear();
 
-        // Get all player's units and buildings
-        const playerUnits = unitManager.units.filter(u => u.owner === player && u.active && !u.isDead());
-        const playerBuildings = buildingManager ?
-            buildingManager.buildings.filter(b => b.owner === player && b.active && !b.isDead()) :
-            [];
+        // Get player's units (using cached array for performance)
+        const playerUnits = unitManager.unitsByPlayer.get(player) || [];
+        const playerBuildings = buildingManager
+            ? buildingManager.buildings.filter(b => b.owner === player && b.active && !b.isDead())
+            : [];
 
         // For each unit/building, add visible entities to the set
         const visionSources = [...playerUnits, ...playerBuildings];
@@ -85,18 +309,21 @@ class VisibilityManager {
             const visionRange = this.getVisionRange(source);
             if (visionRange <= 0) continue;
 
-            // Check all enemy units
-            for (const unit of unitManager.units) {
+            // Use spatial query to find nearby units (much faster than checking all)
+            const nearbyUnits = unitManager.getUnitsInRadius(source.x, source.y, visionRange);
+            for (const unit of nearbyUnits) {
                 if (unit.owner === player) continue; // Skip friendly units
                 if (unit.isDead()) continue;
                 if (!unit.active) continue;
 
+                // Double-check range (spatial query gives approximation)
                 if (this.isInRange(source, unit, visionRange)) {
                     visibleSet.add(`unit_${unit.id}`);
                 }
             }
 
-            // Check all enemy buildings
+            // For buildings, still need to iterate (no spatial query available yet)
+            // But fewer buildings typically exist than units
             if (buildingManager) {
                 for (const building of buildingManager.buildings) {
                     if (building.owner === player) continue; // Skip friendly buildings
@@ -111,69 +338,6 @@ class VisibilityManager {
         }
     }
 
-    /**
-     * Update explored and visible cells for a player based on vision sources
-     * Optimized to avoid unnecessary recalculation
-     * @param {object} player - The player to update
-     * @param {UnitManager} unitManager - Unit manager instance
-     * @param {BuildingManager} buildingManager - Building manager instance
-     */
-    updateExploredCells(player, unitManager, buildingManager) {
-        if (!player || player.isSpectator) return;
-
-        // Clear current visible cells, but keep explored cells
-        player.visibleCells.clear();
-
-        // Get all player's units and buildings (vision sources)
-        const playerUnits = unitManager.units.filter(u => u.owner === player && u.active && !u.isDead());
-        const playerBuildings = buildingManager ?
-            buildingManager.buildings.filter(b => b.owner === player && b.active && !b.isDead()) :
-            [];
-
-        const visionSources = [...playerUnits, ...playerBuildings];
-        const cellSize = RTS_GRID?.CELL_SIZE || 32;
-
-
-        // Optimization: skip cell calculation if no vision sources
-        if (visionSources.length === 0) {
-            return;
-        }
-
-        // For each vision source, mark cells as visible and explored
-        for (const source of visionSources) {
-            const visionRange = this.getVisionRange(source);
-            if (visionRange <= 0) continue;
-
-            // Calculate grid cells within vision range using circular area
-            const centerGridX = Math.floor(source.x / cellSize);
-            const centerGridY = Math.floor(source.y / cellSize);
-            const radiusInCells = Math.ceil(visionRange / cellSize);
-
-            // Optimization: use squared distance to avoid Math.hypot overhead
-            const visionRangeSq = visionRange * visionRange;
-
-            for (let dx = -radiusInCells; dx <= radiusInCells; dx++) {
-                for (let dy = -radiusInCells; dy <= radiusInCells; dy++) {
-                    const gridX = centerGridX + dx;
-                    const gridY = centerGridY + dy;
-
-                    // Check if cell is within circular vision range (squared distance)
-                    const cellCenterX = gridX * cellSize + cellSize / 2;
-                    const cellCenterY = gridY * cellSize + cellSize / 2;
-                    const dx2 = cellCenterX - source.x;
-                    const dy2 = cellCenterY - source.y;
-                    const distSq = dx2 * dx2 + dy2 * dy2;
-
-                    if (distSq <= visionRangeSq) {
-                        const cellKey = `${gridX},${gridY}`;
-                        // Mark as both visible and explored
-                        player.visibleCells.add(cellKey);
-                        player.exploredCells.add(cellKey);
-                    }
-                }
-            }
-        }
-    }
 
     /**
      * Get vision range for a unit or building
@@ -199,7 +363,7 @@ class VisibilityManager {
 
     /**
      * Check if target is within range of source
-     * Uses euclidean distance
+     * OPTIMIZED: Uses squared distance to avoid Math.sqrt
      * @param {Unit|Building} source
      * @param {Unit|Building} target
      * @param {number} range
@@ -210,9 +374,10 @@ class VisibilityManager {
 
         const dx = target.x - source.x;
         const dy = target.y - source.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distSq = dx * dx + dy * dy;
+        const rangeSq = range * range;
 
-        return distance <= range;
+        return distSq <= rangeSq;
     }
 
     /**

@@ -470,9 +470,11 @@ class Game {
         }
 
         // Update visibility (fog of war) for all players
+        console.time('UPDATE_VISIBILITY');
         if (this.visibilityManager) {
             this.visibilityManager.updateVisibility(this.players, this.unitManager, this.buildingManager);
         }
+        console.timeEnd('UPDATE_VISIBILITY');
 
         // Check victory/defeat conditions
         this.checkRTSEndConditions();

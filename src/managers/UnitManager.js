@@ -47,17 +47,11 @@ class UnitManager {
      * @returns {Unit} The created unit
      */
     createUnit(unitType, x, y, owner) {
-        const createLabel = `UNIT_CREATE_${unitType}`;
-        console.time(createLabel);
-
         // Get unit configuration
-        console.time(`CONFIG_LOOKUP_${unitType}`);
         const config = this.getUnitConfig(unitType);
-        console.timeEnd(`CONFIG_LOOKUP_${unitType}`);
 
         if (!config) {
             console.error(`UnitManager: Unknown unit type "${unitType}"`);
-            console.timeEnd(createLabel);
             return null;
         }
 
@@ -66,7 +60,6 @@ class UnitManager {
         // Normalize type to uppercase for comparison (RTS_UNIT_TYPES uses uppercase)
         const unitTypeNormalized = (config.type || '').toUpperCase();
 
-        console.time(`UNIT_CONSTRUCTOR_${unitType}`);
         switch (unitTypeNormalized) {
             case 'INFANTRY':
                 unit = new InfantryUnit(x, y, owner, config);
@@ -80,19 +73,15 @@ class UnitManager {
             default:
                 unit = new Unit(x, y, owner, config);
         }
-        console.timeEnd(`UNIT_CONSTRUCTOR_${unitType}`);
 
         // Assign unique ID
         unit.id = this.nextUnitId++;
         this.totalUnitsCreated++;
 
         // Register unit
-        console.time(`REGISTER_UNIT_${unitType}`);
         this.registerUnit(unit);
-        console.timeEnd(`REGISTER_UNIT_${unitType}`);
 
         // Emit creation event
-        console.time(`EMIT_EVENT_${unitType}`);
         if (this.game.eventManager) {
             this.game.eventManager.emit('UNIT_CREATED', {
                 unit: unit,
@@ -100,9 +89,7 @@ class UnitManager {
                 owner: owner
             });
         }
-        console.timeEnd(`EMIT_EVENT_${unitType}`);
 
-        console.timeEnd(createLabel);
         return unit;
     }
 

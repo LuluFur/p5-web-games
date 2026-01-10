@@ -516,16 +516,12 @@ class AIController {
     tryProduceUnits(unitType, count) {
         if (!Game.instance || !Game.instance.buildingManager) return false;
 
-        const spawnLabel = `AI_SPAWN_${count}_${unitType}`;
-        console.time(spawnLabel);
-
         const unitCost = this.getUnitCost(unitType);
         const producerType = this.getProducerBuilding(unitType);
 
         // Find producer building
         const producer = this.findProducerBuilding(producerType);
         if (!producer) {
-            console.timeEnd(spawnLabel);
             return false;
         }
 
@@ -533,20 +529,13 @@ class AIController {
         let produced = 0;
         for (let i = 0; i < count; i++) {
             if (this.player.resources.tiberium >= unitCost) {
-                const queueLabel = `AI_QUEUE_UNIT_${i}`;
-                console.time(queueLabel);
                 if (this.queueUnit(producer, unitType)) {
                     this.player.resources.tiberium -= unitCost;
                     produced++;
                 }
-                console.timeEnd(queueLabel);
             }
         }
 
-        console.timeEnd(spawnLabel);
-        if (produced > 0) {
-            console.log(`[PERF] AI spawned ${produced} ${unitType} units in total`);
-        }
         return produced >= count;
     }
 
@@ -600,14 +589,12 @@ class AIController {
                 y: producer.y + 50
             };
 
-            console.time(`CREATE_UNIT_${unitType}`);
             Game.instance.unitManager.createUnit(
                 unitType,
                 rallyPoint.x,
                 rallyPoint.y,
                 this.player
             );
-            console.timeEnd(`CREATE_UNIT_${unitType}`);
             return true;
         }
 
