@@ -1411,6 +1411,11 @@ class Game {
 
             // Seed explored cells with current visible cells when FOW is first enabled
             if (this.showFogOfWar && this.localPlayer && this.localPlayer.exploredCells.size === 0) {
+                console.log(`[FOW DEBUG] Seeding explored cells with ${this.localPlayer.visibleCells.size} visible cells`);
+                if (this.localPlayer.visibleCells.size > 0) {
+                    const sample = Array.from(this.localPlayer.visibleCells).slice(0, 5);
+                    console.log(`[FOW DEBUG] Sample visible cells:`, sample);
+                }
                 for (const visibleCell of this.localPlayer.visibleCells) {
                     this.localPlayer.exploredCells.add(visibleCell);
                 }
