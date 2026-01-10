@@ -423,10 +423,96 @@ class CannonTower extends Tower {
         this.color = color(100, 120, 100);
         this.baseCost = 0;      // No cost
         this.sellValue = 0;
+        this.muzzleFlash = 0;   // Muzzle flash animation frames
+    }
+
+    shoot() {
+        super.shoot();
+        this.muzzleFlash = 8;  // Trigger muzzle flash
     }
 
     draw(x, y, size) {
-        this.drawCharacter(x + size / 2, y + size / 2, size, this.color, color(50, 70, 50), 'gun');
+        let cx = x + size / 2;
+        let cy = y + size / 2;
+
+        push();
+        translate(cx, cy);
+
+        // Merge rank shape background
+        this.drawMergeShapeBackground(0, 0, size);
+
+        // 1. Base platform (dark foundation)
+        fill(40, 50, 40);
+        noStroke();
+        rect(-22, 10, 44, 18, 6);
+
+        // 2. Middle platform layer
+        fill(60, 70, 60);
+        rect(-18, 8, 36, 14, 5);
+
+        // 3. Body housing (main color)
+        fill(this.color);
+        stroke(0);
+        strokeWeight(2);
+        rect(-16, -8, 32, 18, 6);
+
+        // 4. Ammo magazine
+        fill(80, 90, 80);
+        noStroke();
+        rect(-10, 2, 8, 12, 3);
+
+        // 5. Rotating turret assembly
+        push();
+        rotate(this.angle);
+
+        // Barrel mounting
+        fill(70, 80, 70);
+        stroke(0);
+        strokeWeight(1.5);
+        rect(-2, -5, 8, 10, 3);
+
+        // Main barrel
+        fill(60);
+        rect(0, -4, 26, 8, 2);
+
+        // Barrel bands (details)
+        fill(50);
+        rect(8, -4, 2, 8);
+        rect(16, -4, 2, 8);
+
+        // Muzzle
+        fill(30);
+        ellipse(26, 0, 7, 7);
+
+        // Muzzle flash effect
+        if (this.muzzleFlash > 0) {
+            this.muzzleFlash--;
+            let alpha = map(this.muzzleFlash, 0, 8, 0, 255);
+            fill(255, 255, 150, alpha);
+            noStroke();
+            ellipse(30, 0, 16, 16);
+            fill(255, 200, 100, alpha * 0.7);
+            ellipse(30, 0, 10, 10);
+        }
+
+        pop(); // End turret rotation
+
+        // 6. Status lights (pulsing)
+        let pulse = sin(frameCount * 0.1) * 0.3 + 0.7;
+        fill(100, 200, 100, 180 * pulse);
+        noStroke();
+        ellipse(-8, -4, 4, 4);
+        ellipse(8, -4, 4, 4);
+
+        // 7. Vents (heat dissipation detail)
+        stroke(40, 50, 40);
+        strokeWeight(1);
+        for (let i = 0; i < 3; i++) {
+            let vx = -6 + i * 6;
+            line(vx, 8, vx, 12);
+        }
+
+        pop();
     }
 }
 
@@ -441,10 +527,118 @@ class DoubleCannon extends Tower {
         this.color = color(50, 80, 150);
         this.baseCost = 0;      // No cost
         this.sellValue = 0;
+        this.muzzleFlash = 0;   // Muzzle flash animation
+        this.barrelAlternate = 0;  // Track which barrel fired last
+    }
+
+    shoot() {
+        super.shoot();
+        this.muzzleFlash = 6;
+        this.barrelAlternate = (this.barrelAlternate + 1) % 2;  // Alternate barrels
     }
 
     draw(x, y, size) {
-        this.drawCharacter(x + size / 2, y + size / 2, size, this.color, color(30, 50, 100), 'dual');
+        let cx = x + size / 2;
+        let cy = y + size / 2;
+
+        push();
+        translate(cx, cy);
+
+        // Merge rank shape background
+        this.drawMergeShapeBackground(0, 0, size);
+
+        // 1. Wide base platform (stability for dual weapons)
+        fill(30, 40, 80);
+        noStroke();
+        rect(-24, 12, 48, 16, 6);
+
+        // 2. Middle platform
+        fill(40, 60, 100);
+        rect(-20, 10, 40, 12, 5);
+
+        // 3. Compact body housing
+        fill(this.color);
+        stroke(0);
+        strokeWeight(2);
+        rect(-18, -6, 36, 16, 5);
+
+        // 4. Ammo feed boxes (dual)
+        fill(60, 80, 120);
+        noStroke();
+        rect(-14, -2, 10, 10, 3);  // Left feed
+        rect(4, -2, 10, 10, 3);    // Right feed
+
+        // 5. Ammo belt details
+        stroke(80, 100, 140);
+        strokeWeight(2);
+        for (let i = 0; i < 4; i++) {
+            let bx = -10 + i * 6;
+            point(bx, 2);
+        }
+
+        // 6. Rotating dual turret assembly
+        push();
+        rotate(this.angle);
+
+        // Twin barrel mounting
+        fill(60, 70, 110);
+        stroke(0);
+        strokeWeight(1.5);
+        rect(-4, -9, 10, 18, 3);
+
+        // Upper barrel
+        fill(50);
+        rect(0, -8, 22, 5, 2);
+
+        // Lower barrel
+        fill(50);
+        rect(0, 3, 22, 5, 2);
+
+        // Barrel cooling fins
+        fill(40);
+        noStroke();
+        rect(8, -8, 1, 5);
+        rect(14, -8, 1, 5);
+        rect(8, 3, 1, 5);
+        rect(14, 3, 1, 5);
+
+        // Twin muzzles
+        fill(30);
+        ellipse(22, -5.5, 5, 5);
+        ellipse(22, 5.5, 5, 5);
+
+        // Muzzle flash (alternating barrels)
+        if (this.muzzleFlash > 0) {
+            this.muzzleFlash--;
+            let alpha = map(this.muzzleFlash, 0, 6, 0, 255);
+            fill(255, 255, 150, alpha);
+            noStroke();
+
+            // Flash on alternating barrel
+            let flashY = this.barrelAlternate === 0 ? -5.5 : 5.5;
+            ellipse(26, flashY, 14, 14);
+            fill(255, 200, 100, alpha * 0.7);
+            ellipse(26, flashY, 8, 8);
+        }
+
+        pop(); // End turret rotation
+
+        // 7. Targeting laser (dual points)
+        let pulse = sin(frameCount * 0.15) * 0.4 + 0.6;
+        fill(255, 100, 100, 160 * pulse);
+        noStroke();
+        ellipse(-10, -2, 3, 3);
+        ellipse(10, -2, 3, 3);
+
+        // 8. Cooling vents
+        stroke(30, 50, 100);
+        strokeWeight(1);
+        for (let i = 0; i < 4; i++) {
+            let vx = -8 + i * 5;
+            line(vx, 8, vx, 11);
+        }
+
+        pop();
     }
 }
 
@@ -462,7 +656,123 @@ class Flamethrower extends Tower {
     }
 
     draw(x, y, size) {
-        this.drawCharacter(x + size / 2, y + size / 2, size, this.color, color(100, 20, 20), 'staff');
+        let cx = x + size / 2;
+        let cy = y + size / 2;
+
+        push();
+        translate(cx, cy);
+
+        // Merge rank background (Reuleaux polygon)
+        this.drawMergeShapeBackground(0, 0, size);
+
+        // Color palette derived from base color
+        let darkBase = color(red(this.color) * 0.6, green(this.color) * 0.6, blue(this.color) * 0.6);
+        let metalGrey = color(80, 85, 90);
+        let darkMetal = color(40, 45, 50);
+
+        // 1. Base platform
+        fill(darkMetal);
+        noStroke();
+        rect(-22, 10, 44, 14, 4);
+
+        // 2. Fuel tanks (layered cylinders)
+        fill(150, 50, 50);
+        stroke(darkBase);
+        strokeWeight(2);
+        ellipse(-10, 6, 14, 18);
+        ellipse(10, 6, 14, 18);
+
+        // Tank caps (metallic)
+        fill(metalGrey);
+        noStroke();
+        ellipse(-10, -2, 8, 4);
+        ellipse(10, -2, 8, 4);
+
+        // 3. Main housing body
+        fill(this.color);
+        stroke(0);
+        strokeWeight(2);
+        rect(-16, -8, 32, 16, 6);
+
+        // Heat vents (cooling fins)
+        stroke(darkBase);
+        strokeWeight(1);
+        line(-12, -8, -12, 8);
+        line(-6, -8, -6, 8);
+        line(6, -8, 6, 8);
+        line(12, -8, 12, 8);
+
+        // 4. Rotating nozzle assembly
+        push();
+        rotate(this.angle);
+
+        // Nozzle base (connection point)
+        fill(metalGrey);
+        stroke(darkMetal);
+        strokeWeight(2);
+        rect(0, -6, 12, 12, 3);
+
+        // Wide flame nozzle (trapezoid for cone effect)
+        fill(100, 40, 40);
+        stroke(darkBase);
+        strokeWeight(2);
+        beginShape();
+        vertex(12, -6);
+        vertex(28, -12);
+        vertex(28, 12);
+        vertex(12, 6);
+        endShape(CLOSE);
+
+        // Nozzle opening (dark interior)
+        fill(20, 10, 10);
+        noStroke();
+        beginShape();
+        vertex(26, -10);
+        vertex(28, -11);
+        vertex(28, 11);
+        vertex(26, 10);
+        endShape(CLOSE);
+
+        // Show active flame stream when firing
+        if (this.target && this.target.active && frameCount % 3 === 0) {
+            noStroke();
+            for (let i = 0; i < 3; i++) {
+                let flameX = 28 + i * 8;
+                let flameSize = 12 - i * 3;
+                let flameSpread = 4 + i * 4;
+                let flameAlpha = 150 - i * 40;
+
+                // Flickering flame colors
+                let flameHue = random() < 0.5
+                    ? color(255, 200, 0, flameAlpha)  // Yellow
+                    : color(255, 100, 0, flameAlpha); // Orange
+
+                fill(flameHue);
+                ellipse(flameX, random(-flameSpread, flameSpread), flameSize, flameSize);
+            }
+        }
+
+        pop();
+
+        // 5. Pilot light indicator (pulsing glow at center)
+        let pulse = sin(frameCount * 0.2) * 0.3 + 0.7;
+
+        // Outer glow
+        fill(255, 150, 0, 100 * pulse);
+        noStroke();
+        ellipse(0, 0, 12 * pulse, 12 * pulse);
+
+        // Inner core
+        fill(255, 200, 50, 220 * pulse);
+        ellipse(0, 0, 6, 6);
+
+        // Pilot light housing (metal ring)
+        noFill();
+        stroke(metalGrey);
+        strokeWeight(2);
+        ellipse(0, 0, 10, 10);
+
+        pop();
     }
 
     shoot() {
@@ -568,10 +878,98 @@ class Electrifier extends Tower {
     }
 
     draw(x, y, size) {
-        // Draw Char
-        this.drawCharacter(x + size / 2, y + size / 2, size, this.color, color(0, 255, 255), 'orb');
+        let cx = x + size / 2;
+        let cy = y + size / 2;
 
-        // Lightning visual overlay
+        push();
+        translate(cx, cy);
+
+        // Merge rank shape background
+        this.drawMergeShapeBackground(0, 0, size);
+
+        // 1. Base platform
+        fill(20, 25, 50);
+        noStroke();
+        rect(-22, 12, 44, 14, 6);
+
+        // 2. Capacitor banks (energy storage)
+        fill(30, 30, 60);
+        stroke(0);
+        strokeWeight(1.5);
+        rect(-18, 6, 14, 16, 4);  // Left capacitor
+        rect(4, 6, 14, 16, 4);     // Right capacitor
+
+        // Capacitor charge indicators
+        let pulse = sin(frameCount * 0.15) * 0.2 + 0.8;
+        fill(0, 150, 255, 180 * pulse);
+        noStroke();
+        rect(-16, 8, 10, 3, 1);
+        rect(-16, 13, 10, 3, 1);
+        rect(6, 8, 10, 3, 1);
+        rect(6, 13, 10, 3, 1);
+
+        // 3. Main housing body
+        fill(this.color);
+        stroke(0);
+        strokeWeight(2);
+        rect(-16, -6, 32, 14, 5);
+
+        // 4. Vertical Tesla coils (symmetrical)
+        fill(70, 75, 90);
+        stroke(40, 45, 60);
+        strokeWeight(2);
+        rect(-12, -22, 6, 24, 3);  // Left coil
+        rect(6, -22, 6, 24, 3);    // Right coil
+
+        // Coil segments (horizontal bands)
+        stroke(50, 55, 70);
+        strokeWeight(1);
+        for (let i = 0; i < 4; i++) {
+            let bandY = -20 + i * 6;
+            line(-12, bandY, -6, bandY);
+            line(6, bandY, 12, bandY);
+        }
+
+        // 5. Arc tips (spherical terminals)
+        fill(120, 150, 200);
+        stroke(0, 200, 255, 150 * pulse);
+        strokeWeight(2);
+        ellipse(-9, -22, 10, 10);
+        ellipse(9, -22, 10, 10);
+
+        // Tip glow
+        noStroke();
+        fill(0, 200, 255, 120 * pulse);
+        ellipse(-9, -22, 14, 14);
+        ellipse(9, -22, 14, 14);
+
+        // 6. Central energy core (pulsing sphere)
+        // Outer glow
+        fill(0, 200, 255, 80 * pulse);
+        ellipse(0, -2, 24 * pulse, 24 * pulse);
+
+        // Core sphere
+        fill(0, 220, 255, 200 * pulse);
+        stroke(0, 255, 255, 180 * pulse);
+        strokeWeight(2);
+        ellipse(0, -2, 16 * pulse, 16 * pulse);
+
+        // Inner bright spot
+        noStroke();
+        fill(200, 255, 255, 250 * pulse);
+        ellipse(0, -2, 8, 8);
+
+        // 7. Energy arcs between coils (idle state)
+        if (frameCount % 20 < 3) {
+            stroke(0, 200, 255, 150);
+            strokeWeight(1);
+            noFill();
+            arc(-9, -22, 18, 10, 0, PI);  // Small arc between tips
+        }
+
+        pop();
+
+        // Lightning visual overlay (when firing)
         if (this.laserFrames > 0) {
             this.laserFrames--;
             push();
@@ -640,17 +1038,116 @@ class SniperTower extends Tower {
     }
 
     draw(x, y, size) {
-        // Character
-        this.drawCharacter(x + size / 2, y + size / 2, size, this.color, color(40, 60, 40), 'sniper');
+        let cx = x + size / 2;
+        let cy = y + size / 2;
 
-        // Tracer Line
+        push();
+        translate(cx, cy);
+
+        // Merge rank shape background
+        this.drawMergeShapeBackground(0, 0, size);
+
+        // 1. Base platform (minimal footprint)
+        fill(40, 35, 20);
+        noStroke();
+        rect(-20, 12, 40, 14, 5);
+
+        // 2. Recoil dampener springs (hydraulic system)
+        stroke(80, 70, 50);
+        strokeWeight(2);
+        noFill();
+        // Left spring
+        for (let i = 0; i < 5; i++) {
+            ellipse(-10 + i * 2.5, 8, 3, 6);
+        }
+        // Right spring
+        for (let i = 0; i < 5; i++) {
+            ellipse(0 + i * 2.5, 8, 3, 6);
+        }
+
+        // 3. Slim body housing (compact profile)
+        fill(this.color);
+        stroke(0);
+        strokeWeight(2);
+        rect(-14, -5, 28, 12, 4);
+
+        // 4. Ammo chamber
+        fill(70, 60, 40);
+        noStroke();
+        rect(-8, -2, 10, 8, 3);
+
+        // 5. Rotating precision turret
+        push();
+        rotate(this.angle);
+
+        // Turret mount (robust connection)
+        fill(80, 70, 50);
+        stroke(0);
+        strokeWeight(1.5);
+        rect(-4, -6, 10, 12, 3);
+
+        // Extended barrel (long-range railgun)
+        fill(50, 45, 30);
+        rect(0, -3, 48, 6, 2);
+
+        // Barrel cooling vents
+        stroke(30, 25, 15);
+        strokeWeight(1);
+        for (let i = 1; i < 6; i++) {
+            let vx = i * 8;
+            line(vx, -3, vx, 3);
+        }
+
+        // Precision scope (targeting system)
+        fill(100, 255, 100, 180);
+        stroke(0, 150, 0);
+        strokeWeight(1.5);
+        rect(18, -8, 14, 4, 2);
+
+        // Scope lens glint
+        fill(200, 255, 200, 220);
+        noStroke();
+        ellipse(25, -6, 3, 2);
+
+        // Targeting laser dot (when active)
+        if (this.target) {
+            fill(255, 0, 0, 120);
+            ellipse(30, -6, 2, 2);
+        }
+
+        // Muzzle brake (recoil reduction)
+        fill(40);
+        stroke(0);
+        strokeWeight(1);
+        rect(46, -4, 6, 8, 1);
+
+        // Muzzle opening
+        fill(20);
+        noStroke();
+        ellipse(52, 0, 4, 4);
+
+        pop(); // End turret rotation
+
+        // 6. Status indicators
+        let pulse = sin(frameCount * 0.08) * 0.3 + 0.7;
+        fill(180, 150, 100, 160 * pulse);
+        noStroke();
+        ellipse(-6, -2, 3, 3);  // Ready indicator
+
+        // 7. Bipod legs (stability)
+        stroke(60, 50, 30);
+        strokeWeight(2);
+        line(-12, 12, -16, 20);
+        line(12, 12, 16, 20);
+
+        pop();
+
+        // Tracer Line (when firing)
         if (this.laserFrames > 0 && this.lastTarget) {
             this.laserFrames--;
             push();
             stroke(255, 255, 0, map(this.laserFrames, 0, 10, 0, 255));
             strokeWeight(2);
-            let cx = x + size / 2;
-            let cy = y + size / 2;
             let bx = cx + cos(this.angle) * 20;
             let by = cy + sin(this.angle) * 20;
             line(bx, by, this.lastTarget.x, this.lastTarget.y);
@@ -771,23 +1268,43 @@ class BufferTower extends Tower {
         // Left port
         ellipse(-20, 0, 7, 7);
 
-        // Port lights (pulsing indicators)
+        // Port lights (pulsing indicators with different phases)
         noStroke();
-        fill(0, 200, 255, 180 * pulse);
+        let portPulse1 = sin(frameCount * 0.1) * 0.4 + 0.6;
+        let portPulse2 = sin(frameCount * 0.1 + PI/2) * 0.4 + 0.6;
+        let portPulse3 = sin(frameCount * 0.1 + PI) * 0.4 + 0.6;
+        let portPulse4 = sin(frameCount * 0.1 + 3*PI/2) * 0.4 + 0.6;
+
+        fill(0, 200, 255, 180 * portPulse1);
         ellipse(0, -24, 3, 3);
+        fill(0, 200, 255, 180 * portPulse2);
         ellipse(20, 0, 3, 3);
+        fill(0, 200, 255, 180 * portPulse3);
         ellipse(0, 24, 3, 3);
+        fill(0, 200, 255, 180 * portPulse4);
         ellipse(-20, 0, 3, 3);
 
-        // ANTENNA/RELAY DISHES (small parabolic dishes at angles)
+        // ANTENNA/RELAY DISHES (rotating slowly)
+        push();
+
+        // Left dish with rotation
+        translate(-12, -8);
+        rotate(frameCount * 0.02);
         fill(70, 75, 80);
         stroke(50, 55, 60);
         strokeWeight(1.5);
+        arc(0, 0, 10, 10, PI * 0.75, PI * 1.75, PIE);
+        pop();
 
-        // Top-left dish
-        arc(-12, -8, 10, 10, PI * 0.75, PI * 1.75, PIE);
-        // Top-right dish
-        arc(12, -8, 10, 10, PI * 1.25, PI * 0.25, PIE);
+        // Right dish with opposite rotation
+        push();
+        translate(12, -8);
+        rotate(-frameCount * 0.02);
+        fill(70, 75, 80);
+        stroke(50, 55, 60);
+        strokeWeight(1.5);
+        arc(0, 0, 10, 10, PI * 1.25, PI * 0.25, PIE);
+        pop();
 
         // Dish mounts (small rectangles)
         noStroke();
@@ -796,6 +1313,28 @@ class BufferTower extends Tower {
         rect(10, -6, 4, 8, 2);
 
         // CENTRAL CRYSTAL/BEACON (enhanced with housing)
+        // Energy ripples emanating from crystal (expanding rings)
+        if (this.networkSize > 0) {
+            noFill();
+            for (let i = 0; i < 3; i++) {
+                let ripplePhase = (frameCount * 0.05 + i * 0.5) % 1;
+                let rippleSize = 30 + ripplePhase * 40;
+                let rippleAlpha = (1 - ripplePhase) * 100;
+                stroke(255, 215, 0, rippleAlpha);
+                strokeWeight(2);
+                ellipse(0, 0, rippleSize, rippleSize);
+            }
+        }
+
+        // Spinning energy ring around crystal housing
+        push();
+        rotate(frameCount * 0.05);
+        noFill();
+        stroke(255, 215, 0, 120 + sin(frameCount * 0.1) * 60);
+        strokeWeight(2);
+        arc(0, 0, 28, 28, 0, PI * 1.5);
+        pop();
+
         // Crystal housing (metal frame)
         fill(70, 75, 80);
         stroke(50, 55, 60);
@@ -826,6 +1365,14 @@ class BufferTower extends Tower {
         // Energy core (tiny pulsing center)
         fill(255, 255, 255, 200 * pulse);
         ellipse(0, 0, 4 * pulse, 4 * pulse);
+
+        // Scanline effect (subtle energy field shimmer)
+        if (frameCount % 60 < 30) {
+            let scanY = -20 + (frameCount % 30) * 1.5;
+            stroke(255, 255, 255, 60);
+            strokeWeight(1);
+            line(-10, scanY, 10, scanY);
+        }
 
         // Network size indicator (on platform)
         fill(220, 220, 220);
@@ -924,21 +1471,132 @@ class SwapTower extends Tower {
     }
 
     draw(x, y, size) {
-        // Draw character with swap visual indicator
         let cx = x + size / 2;
         let cy = y + size / 2;
 
-        // Draw character
-        this.drawCharacter(cx, cy, size, this.color, color(120, 40, 120), 'dual');
+        push();
+        translate(cx, cy);
 
-        // Draw swap icon overlay (rotating arrows)
+        // Merge rank shape background
+        this.drawMergeShapeBackground(0, 0, size);
+
+        // 1. Base platform
+        fill(80, 40, 80);
+        noStroke();
+        rect(-22, 12, 44, 16, 6);
+
+        // 2. Middle platform with phase energy
+        fill(100, 50, 100);
+        rect(-18, 10, 36, 12, 5);
+
+        // 3. Phase capacitors (energy storage)
+        fill(120, 60, 140);
+        stroke(0);
+        strokeWeight(1.5);
+        rect(-16, 4, 10, 12, 3);
+        rect(6, 4, 10, 12, 3);
+
+        // Capacitor energy indicators
+        let pulse = sin(frameCount * 0.15) * 0.3 + 0.7;
+        fill(200, 100, 255, 180 * pulse);
+        noStroke();
+        rect(-14, 6, 6, 3, 1);
+        rect(-14, 11, 6, 3, 1);
+        rect(8, 6, 6, 3, 1);
+        rect(8, 11, 6, 3, 1);
+
+        // 4. Main body housing
+        fill(this.color);
+        stroke(0);
+        strokeWeight(2);
+        rect(-16, -6, 32, 14, 5);
+
+        // 5. Portal ring (thick circular border)
+        push();
+        // Portal ring rotates constantly
+        rotate(frameCount * 0.03);
+        stroke(180, 80, 255);
+        strokeWeight(3);
+        noFill();
+        ellipse(0, -2, size * 0.6, size * 0.6);
+
+        // Inner ring detail
+        stroke(200, 120, 255);
+        strokeWeight(1);
+        ellipse(0, -2, size * 0.5, size * 0.5);
+        pop();
+
+        // 6. Rotating phase particles around the ring
+        for (let i = 0; i < 4; i++) {
+            let angle = frameCount * 0.05 + (i * PI / 2);
+            let particleX = cos(angle) * (size * 0.3);
+            let particleY = sin(angle) * (size * 0.3) - 2;
+
+            fill(200, 100, 255, 200);
+            noStroke();
+            ellipse(particleX, particleY, 6, 6);
+
+            // Particle trail
+            fill(220, 150, 255, 100);
+            ellipse(particleX, particleY, 4, 4);
+        }
+
+        // 7. Energy swirl effect when ready
+        if (this.swapCooldown === 0) {
+            push();
+            rotate(frameCount * 0.08);
+            noFill();
+            stroke(255, 200, 255, 120 * pulse);
+            strokeWeight(2);
+            for (let i = 0; i < 3; i++) {
+                let spiralAngle = (frameCount * 0.08 + i * TWO_PI / 3) % TWO_PI;
+                let spiralRadius = 12 + i * 4;
+                arc(0, -2, spiralRadius * 2, spiralRadius * 2, spiralAngle, spiralAngle + PI);
+            }
+            pop();
+        }
+
+        // 8. Weapon barrel (still attacks enemies) - rotates to target
+        push();
+        rotate(this.angle);
+
+        // Compact phase weapon
+        fill(120, 60, 180);
+        stroke(0);
+        strokeWeight(1.5);
+        rect(0, -3, 18, 6, 2);
+
+        // Energy chamber
+        fill(180, 100, 255, 160);
+        noStroke();
+        rect(2, -2, 8, 4, 1);
+
+        // Barrel tip
+        fill(80, 40, 120);
+        stroke(0);
+        strokeWeight(1);
+        rect(16, -3, 4, 6, 1);
+
+        pop(); // End weapon rotation
+
+        // 9. Central teleport nexus (pulsing core)
+        fill(200, 100, 255, 180 * pulse);
+        noStroke();
+        ellipse(0, -2, 12 * pulse, 12 * pulse);
+
+        fill(255, 200, 255, 220 * pulse);
+        ellipse(0, -2, 6, 6);
+
+        pop();
+
+        // Swap icon overlay (rotating arrows) - KEEP THIS
         push();
         translate(cx, cy);
 
         // Pulsing glow if swap is ready
         if (this.swapCooldown === 0) {
-            let pulse = sin(frameCount * 0.15) * 0.3 + 0.7;
-            stroke(200, 100, 255, 150 * pulse);
+            let swapPulse = sin(frameCount * 0.15) * 0.3 + 0.7;
+            stroke(200, 100, 255, 150 * swapPulse);
             strokeWeight(2);
             noFill();
             ellipse(0, 0, size * 0.7);

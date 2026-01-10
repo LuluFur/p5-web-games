@@ -13,6 +13,9 @@ const TERRAIN_TYPES = {
     MUD: 3,    // Heavily slows enemies, reduces tower range
     STONE: 4,  // Normal movement, boosts tower range
     SAND: 5,   // Speeds up enemies, unstable for towers
+    WATER: 6,  // Level 2 - Blocks land enemies, special towers only
+    ICE: 7,    // Level 4 - Speeds up enemies, extends projectile range
+    LAVA: 8,   // Level 5 - Damages non-fire enemies, heals fire enemies
 };
 
 // ===========================================
@@ -25,6 +28,9 @@ const TERRAIN_COLORS = {
     [TERRAIN_TYPES.MUD]: '#5C4033',        // Brown mud
     [TERRAIN_TYPES.STONE]: '#8B8680',      // Light gray stone
     [TERRAIN_TYPES.SAND]: '#EDC9AF',       // Tan/beige sand
+    [TERRAIN_TYPES.WATER]: '#4A90A4',      // Blue-green water
+    [TERRAIN_TYPES.ICE]: '#C7E8F5',        // Pale blue ice
+    [TERRAIN_TYPES.LAVA]: '#FF6B35',       // Orange-red lava
 };
 
 // ===========================================
@@ -89,6 +95,40 @@ const TERRAIN_PROPERTIES = {
         speedModifier: 1.3,          // 30% faster
         towerRangeModifier: 0.85,    // 15% less range (unstable)
         description: 'Loose sand - speeds up enemies, reduces tower effectiveness',
+    },
+
+    [TERRAIN_TYPES.WATER]: {
+        name: 'Water',
+        walkable: false,             // Land enemies cannot walk (aquatic enemies can)
+        buildable: false,            // Standard towers cannot build (amphibious can)
+        blocksLineOfSight: false,    // Does not block projectiles
+        speedModifier: 0.0,          // Impassable for land enemies
+        towerRangeModifier: 0.9,     // 10% less range (water interference)
+        towerFireRateModifier: 1.15, // 15% faster attack speed (water cooling)
+        description: 'Water - only amphibious towers can build, land enemies path around',
+    },
+
+    [TERRAIN_TYPES.ICE]: {
+        name: 'Ice',
+        walkable: true,              // All enemies can walk
+        buildable: true,             // All towers can build
+        blocksLineOfSight: false,    // Does not block projectiles
+        speedModifier: 1.4,          // 40% faster (slipping on ice)
+        towerRangeModifier: 1.0,     // Normal range for towers
+        projectileRangeBonus: 1.2,   // 20% longer projectile travel (ice deflection)
+        description: 'Ice - enemies move faster, projectiles travel farther',
+    },
+
+    [TERRAIN_TYPES.LAVA]: {
+        name: 'Lava',
+        walkable: true,              // Enemies can walk but take damage
+        buildable: false,            // Only fire-immune towers can build
+        blocksLineOfSight: false,    // Does not block projectiles
+        speedModifier: 1.0,          // Normal speed
+        towerRangeModifier: 1.0,     // Normal range
+        damagePerSecond: 5,          // Non-fire enemies take 5 DPS
+        fireEnemyHealPerSecond: 10,  // Fire enemies heal 10 HP/s
+        description: 'Lava - damages non-fire enemies, heals fire enemies, only fire-immune towers',
     },
 };
 

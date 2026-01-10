@@ -1,4 +1,322 @@
 class Pathfinder {
+    // ========================================
+    // RTS PATHFINDING EXTENSIONS
+    // ========================================
+
+    /**
+     * Path cache for performance optimization
+     * Key format: "startR,startC->endR,endC"
+     * Value: { path: [...], timestamp: millis(), hits: number }
+     */
+    static pathCache = new Map();
+    static CACHE_EXPIRY_MS = 5000; // Cache paths for 5 seconds
+    static MAX_CACHE_SIZE = 100;
+
+    /**
+     * Find path from world coordinates to world coordinates
+     * Converts pixel positions to grid cells and back
+     *
+     * @param {Grid} grid - The game grid
+     * @param {number} startX - Start X in world pixels
+     * @param {number} startY - Start Y in world pixels
+     * @param {number} endX - End X in world pixels
+     * @param {number} endY - End Y in world pixels
+     * @param {object} options - Optional settings { useCache, avoidUnits }
+     * @returns {Array} Path as array of { x, y } world positions
+     */
+    static findPathWorld(grid, startX, startY, endX, endY, options = {}) {
+        const cellSize = grid.cellSize || RTS_GRID?.CELL_SIZE || 32;
+
+        // Convert world coords to grid coords
+        const startCell = this.worldToGrid(startX, startY, grid);
+        const endCell = this.worldToGrid(endX, endY, grid);
+
+        // Clamp to grid bounds
+        startCell.r = Math.max(0, Math.min(grid.rows - 1, startCell.r));
+        startCell.c = Math.max(0, Math.min(grid.cols - 1, startCell.c));
+        endCell.r = Math.max(0, Math.min(grid.rows - 1, endCell.r));
+        endCell.c = Math.max(0, Math.min(grid.cols - 1, endCell.c));
+
+        // Check cache if enabled
+        if (options.useCache !== false) {
+            const cacheKey = `${startCell.r},${startCell.c}->${endCell.r},${endCell.c}`;
+            const cached = this.getCachedPath(cacheKey);
+            if (cached) return cached;
+        }
+
+        // Find path in grid coordinates
+        const gridPath = this.findPath(grid, startCell, endCell, options.penaltyNodes);
+
+        // Convert back to world coordinates
+        const worldPath = gridPath.map(node =>
+            this.gridToWorld(node.r, node.c, grid)
+        );
+
+        // Cache the result
+        if (options.useCache !== false && worldPath.length > 0) {
+            const cacheKey = `${startCell.r},${startCell.c}->${endCell.r},${endCell.c}`;
+            this.cachePath(cacheKey, worldPath);
+        }
+
+        return worldPath;
+    }
+
+    /**
+     * Convert world coordinates to grid cell
+     * @param {number} x - World X
+     * @param {number} y - World Y
+     * @param {Grid} grid - The grid
+     * @returns {object} { r, c } grid cell
+     */
+    static worldToGrid(x, y, grid) {
+        const cellSize = grid.cellSize || RTS_GRID?.CELL_SIZE || 32;
+        const offsetX = grid.offsetX || 0;
+        const offsetY = grid.offsetY || 0;
+
+        return {
+            r: Math.floor((y - offsetY) / cellSize),
+            c: Math.floor((x - offsetX) / cellSize)
+        };
+    }
+
+    /**
+     * Convert grid cell to world coordinates (center of cell)
+     * @param {number} r - Row
+     * @param {number} c - Column
+     * @param {Grid} grid - The grid
+     * @returns {object} { x, y } world position
+     */
+    static gridToWorld(r, c, grid) {
+        const cellSize = grid.cellSize || RTS_GRID?.CELL_SIZE || 32;
+        const offsetX = grid.offsetX || 0;
+        const offsetY = grid.offsetY || 0;
+
+        return {
+            x: offsetX + c * cellSize + cellSize / 2,
+            y: offsetY + r * cellSize + cellSize / 2
+        };
+    }
+
+    /**
+     * Get cached path if valid
+     * @param {string} key - Cache key
+     * @returns {Array|null} Cached path or null
+     */
+    static getCachedPath(key) {
+        const cached = this.pathCache.get(key);
+        if (!cached) return null;
+
+        // Check if expired
+        if (typeof millis === 'function' && millis() - cached.timestamp > this.CACHE_EXPIRY_MS) {
+            this.pathCache.delete(key);
+            return null;
+        }
+
+        cached.hits++;
+        return [...cached.path]; // Return copy
+    }
+
+    /**
+     * Cache a path
+     * @param {string} key - Cache key
+     * @param {Array} path - The path to cache
+     */
+    static cachePath(key, path) {
+        // Enforce max cache size
+        if (this.pathCache.size >= this.MAX_CACHE_SIZE) {
+            // Remove oldest entries
+            const toRemove = this.pathCache.size - this.MAX_CACHE_SIZE + 10;
+            const keys = Array.from(this.pathCache.keys());
+            for (let i = 0; i < toRemove; i++) {
+                this.pathCache.delete(keys[i]);
+            }
+        }
+
+        this.pathCache.set(key, {
+            path: [...path],
+            timestamp: typeof millis === 'function' ? millis() : Date.now(),
+            hits: 0
+        });
+    }
+
+    /**
+     * Clear the path cache (call when grid changes)
+     */
+    static clearCache() {
+        this.pathCache.clear();
+    }
+
+    /**
+     * Find the nearest walkable cell to a target
+     * Used when target cell is blocked
+     *
+     * @param {Grid} grid - The grid
+     * @param {number} targetR - Target row
+     * @param {number} targetC - Target column
+     * @param {number} maxRadius - Max search radius (default 5)
+     * @returns {object|null} { r, c } of nearest walkable cell or null
+     */
+    static findNearestWalkable(grid, targetR, targetC, maxRadius = 5) {
+        // Spiral outward from target
+        for (let radius = 1; radius <= maxRadius; radius++) {
+            for (let dr = -radius; dr <= radius; dr++) {
+                for (let dc = -radius; dc <= radius; dc++) {
+                    // Only check perimeter of this radius
+                    if (Math.abs(dr) !== radius && Math.abs(dc) !== radius) continue;
+
+                    const r = targetR + dr;
+                    const c = targetC + dc;
+
+                    // Check bounds
+                    if (r < 0 || r >= grid.rows || c < 0 || c >= grid.cols) continue;
+
+                    // Check walkable
+                    if (this.isWalkable(grid, r, c)) {
+                        return { r, c };
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if a cell is walkable
+     * @param {Grid} grid - The grid
+     * @param {number} r - Row
+     * @param {number} c - Column
+     * @returns {boolean}
+     */
+    static isWalkable(grid, r, c) {
+        // Check bounds
+        if (r < 0 || r >= grid.rows || c < 0 || c >= grid.cols) {
+            return false;
+        }
+
+        // Check if occupied by structure
+        if (grid.map && grid.map[r][c] !== 0) {
+            return false;
+        }
+
+        // Check terrain
+        if (typeof grid.getTerrainType === 'function') {
+            const terrain = grid.getTerrainType(r, c);
+            if (typeof TERRAIN_TYPES !== 'undefined' && terrain === TERRAIN_TYPES.CLIFF) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Calculate path distance (for AI decisions)
+     * @param {Array} path - The path
+     * @returns {number} Total path distance
+     */
+    static getPathDistance(path) {
+        if (!path || path.length < 2) return 0;
+
+        let distance = 0;
+        for (let i = 1; i < path.length; i++) {
+            const dx = path[i].x - path[i - 1].x;
+            const dy = path[i].y - path[i - 1].y;
+            distance += Math.sqrt(dx * dx + dy * dy);
+        }
+
+        return distance;
+    }
+
+    /**
+     * Smooth a path by removing unnecessary waypoints
+     * Uses line-of-sight checks to skip intermediate nodes
+     *
+     * @param {Grid} grid - The grid
+     * @param {Array} path - Original path
+     * @returns {Array} Smoothed path
+     */
+    static smoothPath(grid, path) {
+        if (!path || path.length <= 2) return path;
+
+        const smoothed = [path[0]];
+        let current = 0;
+
+        while (current < path.length - 1) {
+            // Try to skip as many waypoints as possible
+            let furthest = current + 1;
+
+            for (let i = path.length - 1; i > current + 1; i--) {
+                if (this.hasLineOfSight(grid, path[current], path[i])) {
+                    furthest = i;
+                    break;
+                }
+            }
+
+            smoothed.push(path[furthest]);
+            current = furthest;
+        }
+
+        return smoothed;
+    }
+
+    /**
+     * Check line of sight between two points
+     * @param {Grid} grid - The grid
+     * @param {object} from - Start point { x, y } or { r, c }
+     * @param {object} to - End point { x, y } or { r, c }
+     * @returns {boolean} True if clear line of sight
+     */
+    static hasLineOfSight(grid, from, to) {
+        // Convert to grid coords if needed
+        let fromCell, toCell;
+
+        if ('r' in from && 'c' in from) {
+            fromCell = from;
+            toCell = to;
+        } else {
+            fromCell = this.worldToGrid(from.x, from.y, grid);
+            toCell = this.worldToGrid(to.x, to.y, grid);
+        }
+
+        // Bresenham's line algorithm
+        let x0 = fromCell.c;
+        let y0 = fromCell.r;
+        let x1 = toCell.c;
+        let y1 = toCell.r;
+
+        const dx = Math.abs(x1 - x0);
+        const dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+
+        while (true) {
+            // Check if current cell is walkable
+            if (!this.isWalkable(grid, y0, x0)) {
+                return false;
+            }
+
+            if (x0 === x1 && y0 === y1) break;
+
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x0 += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y0 += sy;
+            }
+        }
+
+        return true;
+    }
+
+    // ========================================
+    // ORIGINAL PATHFINDING (BELOW)
+    // ========================================
+
     /**
      * Find shortest path using Dijkstra's Algorithm with terrain awareness.
      *

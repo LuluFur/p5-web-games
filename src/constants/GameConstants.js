@@ -14,15 +14,6 @@ const GRID_CONSTANTS = {
 };
 
 // ===========================================
-// ECONOMY
-// ===========================================
-const ECONOMY_CONSTANTS = {
-    STARTING_GOLD: 500,  // Increased for easier gameplay
-    STARTING_LIVES: 20,
-    GRID_EXPAND_COST: 200,
-};
-
-// ===========================================
 // TOWER STATS (OPTION 2: AGGRESSIVE BUFFS - NO COSTS)
 // ===========================================
 const TOWER_STATS = {
@@ -76,45 +67,6 @@ const PERFORMANCE_CONSTANTS = {
     OFFSCREEN_CULL_MARGIN: 100,  // Pixels outside grid to still render
 };
 
-// ===========================================
-// ENEMY CONSTANTS
-// ===========================================
-const ENEMY_CONSTANTS = {
-    SPAWN_STATE_DURATION: 180,  // 3 seconds at 60fps
-    DEATH_STATE_DURATION: 70,
-    DEATH_KNOCKBACK_X: 15,
-    DEATH_KNOCKBACK_Y: 10,
-
-    // Animation Frame Rates
-    WALK_FRAME_DURATION: 10,  // Frames per animation frame
-
-    // Golem
-    GOLEM_ARMOR: 0.5,  // 50% damage reduction
-
-    // Regenerator
-    REGENERATOR_HEAL_RATE: 3,  // HP per second
-    REGENERATOR_HEAL_DELAY: 60,  // Frames before regen starts
-
-    // Necromancer
-    NECROMANCER_SUMMON_COOLDOWN: 240,  // 4 seconds
-    NECROMANCER_SUMMON_COUNT: 3,
-};
-
-// ===========================================
-// WAVE & DDA
-// ===========================================
-const WAVE_CONSTANTS = {
-    GRID_EXPAND_INTERVAL: 3,  // Expand grid every N waves
-
-    // Dynamic Difficulty Adjustment
-    DDA_MIN: 0.85,  // -15% spawn speed (easier)
-    DDA_MAX: 1.15,  // +15% spawn speed (harder)
-    DDA_ADJUSTMENT_STRUGGLING: -0.05,
-    DDA_ADJUSTMENT_DOMINATING: 0.03,
-    DDA_HEALTH_THRESHOLD_LOW: 0.4,  // 40% health = struggling
-    DDA_HEALTH_THRESHOLD_HIGH: 0.9,  // 90% health = dominating
-    DDA_BONUS_GOLD_BASE: 25,
-};
 
 // ===========================================
 // TERRAIN GENERATION
@@ -176,36 +128,17 @@ const UI_CONSTANTS = {
     SKIP_BUTTON_MARGIN_Y: 20,
 };
 
-// ===========================================
-// LEVEL PROGRESSION
-// ===========================================
-const LEVEL_CONSTANTS = {
-    // Enemy types unlocked per level (2 new types each level)
-    ENEMY_UNLOCKS: {
-        1: ['zombie', 'skeleton'],           // Level 1: Basic enemies
-        2: ['vampire', 'swarm'],             // Level 2: Tanky and fast
-        3: ['wraith', 'goblin'],             // Level 3: Very fast enemies
-        4: ['golem', 'regenerator'],         // Level 4: Armored enemies
-        5: ['ogre', 'necromancer'],          // Level 5: Boss level
-    },
-    // Waves required to complete each level
-    WAVES_PER_LEVEL: 10,
-};
 
 // ===========================================
 // Export for global access
 // ===========================================
 if (typeof window !== 'undefined') {
     window.GRID_CONSTANTS = GRID_CONSTANTS;
-    window.ECONOMY_CONSTANTS = ECONOMY_CONSTANTS;
     window.TOWER_STATS = TOWER_STATS;
     window.TOWER_CONSTANTS = TOWER_CONSTANTS;
     window.PERFORMANCE_CONSTANTS = PERFORMANCE_CONSTANTS;
-    window.ENEMY_CONSTANTS = ENEMY_CONSTANTS;
-    window.WAVE_CONSTANTS = WAVE_CONSTANTS;
     window.TERRAIN_GENERATION = TERRAIN_GENERATION;
     window.INPUT_CONSTANTS = INPUT_CONSTANTS;
     window.VFX_CONSTANTS = VFX_CONSTANTS;
     window.UI_CONSTANTS = UI_CONSTANTS;
-    window.LEVEL_CONSTANTS = LEVEL_CONSTANTS;
 }

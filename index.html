@@ -15,12 +15,15 @@
     <!-- Constants (load first) -->
     <script src="src/constants/GameConstants.js"></script>
     <script src="src/constants/TerrainConstants.js"></script>
+    <script src="src/constants/RTSConstants.js"></script>
 
     <!-- Utilities (load first, no dependencies) -->
     <script src="src/utils/GameMath.js"></script>
     <script src="src/utils/UIHelper.js"></script>
     <script src="src/utils/TextAnimator.js"></script>
     <script src="src/utils/RichTextParser.js"></script>
+    <script src="src/utils/ShapeRenderer.js"></script>
+    <script src="src/utils/TestRunner.js"></script>
 
     <!-- Data (level definitions, configs) -->
     <script src="src/data/LevelData.js"></script>
@@ -33,35 +36,38 @@
     <script src="src/Projectile.js"></script>
     <script src="src/HealthBar.js"></script>
     <script src="src/Particle.js"></script>
-    <script src="src/CoinParticle.js"></script>
+    <!-- RTS Commands (before Units) -->
+    <script src="src/commands/Command.js"></script>
 
-    <!-- Enemies -->
-    <script src="src/Enemy.js"></script>
-    <script src="src/Vampire.js"></script>
-    <script src="src/Skeleton.js"></script>
-    <script src="src/Wraith.js"></script>
-    <script src="src/Goblin.js"></script>
-    <script src="src/Ogre.js"></script>
-    <script src="src/Necromancer.js"></script>
-    <script src="src/Ghost.js"></script>
-    <script src="src/Golem.js"></script>
-    <script src="src/Slime.js"></script>
-    <script src="src/Wolf.js"></script>
+    <!-- RTS Core Classes -->
+    <script src="src/Unit.js"></script>
+    <script src="src/Building.js"></script>
+    <script src="src/Player.js"></script>
 
     <!-- Managers -->
     <script src="src/managers/EventManager.js"></script>
-    <script src="src/managers/LevelManager.js"></script>
     <script src="src/managers/StatsManager.js"></script>
-    <script src="src/managers/EconomyManager.js"></script>
     <script src="src/managers/ObjectManager.js"></script>
-    <script src="src/managers/TowerManager.js"></script>
     <script src="src/managers/ParticleManager.js"></script>
-    <script src="src/managers/WaveManager.js"></script>
-    <script src="src/managers/DialogueManager.js"></script>
     <script src="src/managers/InputManager.js"></script>
     <script src="src/managers/DisplayManager.js"></script>
-    <script src="src/managers/TutorialManager.js"></script>
     <script src="src/managers/SpellManager.js"></script>
+    <!-- RTS Managers -->
+    <script src="src/managers/UnitManager.js"></script>
+    <script src="src/managers/SelectionManager.js"></script>
+    <script src="src/managers/ResourceManager.js"></script>
+    <script src="src/managers/BuildingManager.js"></script>
+    <script src="src/managers/VisibilityManager.js"></script>
+
+    <!-- AI -->
+    <script src="src/ai/AIController.js"></script>
+
+    <!-- Map Generation -->
+    <script src="src/MapGenerator.js"></script>
+
+    <!-- UI Panels -->
+    <script src="src/ui/BuildingInfoPanel.js"></script>
+    <script src="src/ui/ProductionPanel.js"></script>
 
     <!-- Renderers -->
     <script src="src/renderers/ScreenEffectRenderer.js"></script>
@@ -72,11 +78,11 @@
     <!-- Game Systems -->
     <script src="src/Decor.js"></script>
     <script src="src/SoundManager.js"></script>
-    <script src="src/UI.js"></script>
-    <script src="src/WaveGenerator.js"></script>
-    <script src="src/WaveDialogue.js"></script>
-    <script src="src/WaveConfig.js"></script>
     <script src="src/Game.js"></script>
+
+    <!-- Tests (load last, after all classes) -->
+    <script src="src/tests/BuilderTests.js"></script>
+
     <script src="sketch.js"></script>
 </head>
 

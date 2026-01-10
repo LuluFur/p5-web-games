@@ -1,11 +1,9 @@
-// ObjectManager.js - Handles updates for all game objects (towers, enemies, projectiles, particles)
+// ObjectManager.js - Handles updates for all game objects (projectiles, particles)
 class ObjectManager {
     constructor(game) {
         this.game = game;
-        this.enemies = [];
         this.projectiles = [];
         this.particles = [];
-        this.coins = []; // Coin particles for collection
 
         // Performance: Object Pools
         this.particlePool = [];
@@ -20,21 +18,6 @@ class ObjectManager {
             this.particlePool.push(new Particle(0, 0, color(0), 0, 0));
         }
         console.log(`ObjectManager: Particle pool initialized (${this.particlePool.length} objects)`);
-    }
-
-    // Update all towers (targeting & shooting)
-    updateTowers() {
-        let grid = this.game.grid;
-        if (!grid) return;
-
-        for (let r = 0; r < grid.rows; r++) {
-            for (let c = 0; c < grid.cols; c++) {
-                let cell = grid.map[r][c];
-                if (cell instanceof Tower) {
-                    cell.update(this.enemies);
-                }
-            }
-        }
     }
 
     // Update all projectiles
@@ -63,35 +46,10 @@ class ObjectManager {
         }
     }
 
-    // Update all enemies
-    updateEnemies() {
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            let e = this.enemies[i];
-            e.update();
-            if (!e.active) {
-                this.enemies.splice(i, 1);
-            }
-        }
-    }
-
-    // Update all coin particles
-    updateCoins() {
-        for (let i = this.coins.length - 1; i >= 0; i--) {
-            let c = this.coins[i];
-            c.update();
-            if (c.shouldRemove()) {
-                this.coins.splice(i, 1);
-            }
-        }
-    }
-
     // Update all game objects in correct order
     updateAll() {
-        this.updateTowers();
         this.updateProjectiles();
         this.updateParticles();
-        this.updateEnemies();
-        this.updateCoins();
     }
 
     // Add a projectile
@@ -143,33 +101,13 @@ class ObjectManager {
         }
     }
 
-    // Add an enemy
-    addEnemy(enemy) {
-        this.enemies.push(enemy);
-    }
-
-    // Spawn coin particles at enemy death location
-    spawnCoins(x, y, goldValue) {
-        // Calculate number of coins based on gold value
-        let coinCount = Math.min(Math.ceil(goldValue / 3), 8); // Max 8 coins
-
-        for (let i = 0; i < coinCount; i++) {
-            let coin = new CoinParticle(x, y, Math.ceil(goldValue / coinCount));
-            this.coins.push(coin);
-        }
-    }
-
     // Clear all objects (for reset)
     clear() {
-        this.enemies = [];
         this.projectiles = [];
         this.particles = [];
-        this.coins = [];
     }
 
     // Get counts
-    get enemyCount() { return this.enemies.length; }
     get projectileCount() { return this.projectiles.length; }
     get particleCount() { return this.particles.length; }
-    get coinCount() { return this.coins.length; }
 }
