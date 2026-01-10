@@ -124,7 +124,7 @@ class Game {
 
         // Debug visualization flags
         this.showVisionRanges = false; // Press 'V' to toggle vision range debug overlay
-        this.showFogOfWar = false; // Press 'F' to toggle fog of war visualization (disabled by default - vision ranges too large to show shroud)
+        this.showFogOfWar = true; // Fog of war enabled by default
 
         // Clean up previous game state
         this.cleanupPreviousGame();
@@ -1402,12 +1402,6 @@ class Game {
         if (key === 'v' || key === 'V') {
             this.showVisionRanges = !this.showVisionRanges;
             console.log(`Vision ranges ${this.showVisionRanges ? 'enabled' : 'disabled'}`);
-            return;
-        }
-
-        // F to toggle fog of war visualization
-        if (key === 'f' || key === 'F') {
-            this.showFogOfWar = !this.showFogOfWar;
             return;
         }
 

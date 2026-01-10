@@ -1028,7 +1028,7 @@ class ConstructionYard extends Building {
             buildTime: 0,
             powerOutput: 0,
             powerConsumption: 0,
-            visionRange: 200  // Moderate vision (6 cells)
+            visionRange: 216  // Moderate vision (6.75 cells - half tile increase)
         });
 
         // ConYard starts complete
@@ -1124,7 +1124,7 @@ class Barracks extends Building {
             buildTime: 10,
             powerOutput: 0,
             powerConsumption: 20,
-            visionRange: 160  // Moderate vision (5 cells)
+            visionRange: 176  // Moderate vision (5.5 cells - half tile increase)
         });
 
         // Units this building can produce
@@ -1185,7 +1185,7 @@ class Refinery extends Building {
             buildTime: 12,
             powerOutput: 0,
             powerConsumption: 30,
-            visionRange: 140  // Low-moderate vision (4-5 cells)
+            visionRange: 156  // Low-moderate vision (4.875 cells - half tile increase)
         });
 
         // Refinery spawns a harvester on completion
@@ -1247,7 +1247,7 @@ class WarFactory extends Building {
             buildTime: 15,
             powerOutput: 0,
             powerConsumption: 40,
-            visionRange: 180  // Moderate vision (5-6 cells)
+            visionRange: 196  // Moderate vision (6.125 cells - half tile increase)
         });
 
         // Units this building can produce
@@ -1380,7 +1380,7 @@ class GuardTower extends Building {
             buildTime: 6,
             powerOutput: 0,
             powerConsumption: 15,
-            visionRange: 250  // 7-8 cell vision
+            visionRange: 266  // 8.3 cell vision (half tile increase)
         });
 
         // Combat stats - buffed for rapid-fire infantry shredding
@@ -1573,7 +1573,7 @@ class Radar extends Building {
             buildTime: 15,
             powerOutput: 0,
             powerConsumption: 40,
-            visionRange: 480  // Longest vision range (15 cells)
+            visionRange: 496  // Longest vision range (15.5 cells - half tile increase)
         });
 
         // Radar functionality

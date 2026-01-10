@@ -361,7 +361,7 @@ const RTS_BUILDINGS = {
         isCore: true,           // Loss = defeat
         tier: 0,
         prerequisites: [],
-        visionRange: 200        // Moderate vision (6 cells)
+        visionRange: 216        // Moderate vision (6.75 cells - half tile increase)
     },
 
     POWER_PLANT: {
