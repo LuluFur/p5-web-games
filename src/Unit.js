@@ -537,13 +537,23 @@ class Unit {
     /**
      * Cleanup unit references to break circular reference chains
      * Called when unit is removed from game
+     * NOTE: Does NOT clear commands - they may still execute and need this.unit
      */
     cleanup() {
-        this.clearCommands();
+        // Break cross-unit references that create circular chains
+        // But don't null this.unit from commands - they still need it
         this.owner = null;
         this.target = null;
         this.lastAttacker = null;
         this.selectedBy = null;
+
+        // Clear commands WITHOUT nulling unit references
+        if (this.currentCommand) {
+            this.currentCommand.interrupt();
+            this.currentCommand = null;
+        }
+        this.commandQueue = [];
+        this.state = RTS_UNIT_STATES.IDLE;
     }
 
     // ===========================================

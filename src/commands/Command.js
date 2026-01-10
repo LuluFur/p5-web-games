@@ -55,9 +55,11 @@ class Command {
     /**
      * Clean up references to break circular reference chains
      * Subclasses should override and call super.cleanup()
+     * NOTE: Do NOT null this.unit - commands may still execute after cleanup
      */
     cleanup() {
-        this.unit = null;
+        // Don't null this.unit - it may still be needed for execute()
+        // Just mark as complete to stop re-execution
         this.isComplete = true;
     }
 
@@ -225,6 +227,7 @@ class MoveCommand extends Command {
         super.cleanup();
         this.path = null;
         this.lastPosition = null;
+        // Don't null this.unit - it may still be needed
     }
 }
 
@@ -318,6 +321,7 @@ class AttackCommand extends Command {
             this.moveCommand.cleanup();
             this.moveCommand = null;
         }
+        // Don't null this.unit - needed for execute()
     }
 }
 
@@ -398,6 +402,7 @@ class AttackMoveCommand extends Command {
             this.attackCommand.cleanup();
             this.attackCommand = null;
         }
+        // Don't null this.unit - needed for execute()
     }
 }
 
@@ -493,6 +498,7 @@ class PatrolCommand extends Command {
             this.moveCommand.cleanup();
             this.moveCommand = null;
         }
+        // Don't null this.unit - needed for execute()
     }
 }
 
@@ -605,6 +611,7 @@ class GuardCommand extends Command {
             this.attackCommand.cleanup();
             this.attackCommand = null;
         }
+        // Don't null this.unit - needed for execute()
     }
 }
 
@@ -814,6 +821,7 @@ class HarvestCommand extends Command {
             this.moveCommand.cleanup();
             this.moveCommand = null;
         }
+        // Don't null this.unit - needed for execute()
     }
 }
 
@@ -957,6 +965,7 @@ class ReturnResourcesCommand extends Command {
             this.moveCommand.cleanup();
             this.moveCommand = null;
         }
+        // Don't null this.unit - needed for execute()
     }
 }
 
@@ -1025,6 +1034,7 @@ class ConstructBuildingCommand extends Command {
     cleanup() {
         super.cleanup();
         this.buildingType = null;
+        // Don't null this.unit - needed for execute()
     }
 }
 
