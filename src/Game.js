@@ -1410,15 +1410,23 @@ class Game {
             this.showFogOfWar = !this.showFogOfWar;
 
             // Seed explored cells with current visible cells when FOW is first enabled
-            if (this.showFogOfWar && this.localPlayer && this.localPlayer.exploredCells.size === 0) {
-                console.log(`[FOW DEBUG] Seeding explored cells with ${this.localPlayer.visibleCells.size} visible cells`);
-                if (this.localPlayer.visibleCells.size > 0) {
-                    const sample = Array.from(this.localPlayer.visibleCells).slice(0, 5);
-                    console.log(`[FOW DEBUG] Sample visible cells:`, sample);
+            if (this.showFogOfWar && this.localPlayer) {
+                console.log(`[FOW DEBUG] Before seeding: explored=${this.localPlayer.exploredCells.size}, visible=${this.localPlayer.visibleCells.size}`);
+
+                if (this.localPlayer.exploredCells.size === 0) {
+                    console.log(`[FOW DEBUG] Seeding explored cells with ${this.localPlayer.visibleCells.size} visible cells`);
+                    if (this.localPlayer.visibleCells.size > 0) {
+                        const sample = Array.from(this.localPlayer.visibleCells).slice(0, 5);
+                        console.log(`[FOW DEBUG] Sample visible cells:`, sample);
+                    }
+                    for (const visibleCell of this.localPlayer.visibleCells) {
+                        this.localPlayer.exploredCells.add(visibleCell);
+                    }
+                } else {
+                    console.log(`[FOW DEBUG] exploredCells already has ${this.localPlayer.exploredCells.size} cells, not seeding`);
                 }
-                for (const visibleCell of this.localPlayer.visibleCells) {
-                    this.localPlayer.exploredCells.add(visibleCell);
-                }
+
+                console.log(`[FOW DEBUG] After seeding: explored=${this.localPlayer.exploredCells.size}, visible=${this.localPlayer.visibleCells.size}`);
             }
 
             console.log(`Fog of war ${this.showFogOfWar ? 'enabled' : 'disabled'}`);
