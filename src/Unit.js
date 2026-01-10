@@ -167,7 +167,9 @@ class Unit {
         }
 
         // Process current command
+        if (this.id <= 5) console.time(`UNIT_${this.id}_COMMANDS`);
         this.processCommands(deltaTime);
+        if (this.id <= 5) console.timeEnd(`UNIT_${this.id}_COMMANDS`);
 
         // Apply stance behavior when no current command (allows automatic re-targeting)
         if (!this.currentCommand) {
@@ -175,7 +177,9 @@ class Unit {
             if (this.state !== RTS_UNIT_STATES.IDLE) {
                 this.state = RTS_UNIT_STATES.IDLE;
             }
+            if (this.id <= 5) console.time(`UNIT_${this.id}_STANCE`);
             this.applyStanceBehavior(deltaTime);
+            if (this.id <= 5) console.timeEnd(`UNIT_${this.id}_STANCE`);
         }
 
         // Self-healing for heroic units
@@ -185,7 +189,9 @@ class Unit {
         }
 
         // Apply unit separation to prevent stacking
+        if (this.id <= 5) console.time(`UNIT_${this.id}_SEPARATION`);
         this.applySeparation(deltaTime);
+        if (this.id <= 5) console.timeEnd(`UNIT_${this.id}_SEPARATION`);
     }
 
     /**

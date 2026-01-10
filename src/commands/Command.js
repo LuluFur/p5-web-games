@@ -120,7 +120,9 @@ class MoveCommand extends Command {
                 c: Math.floor(this.targetX / RTS_GRID.CELL_SIZE)
             };
 
+            console.time(`PATHFIND_${this.unit.id}`);
             this.path = RTSPathfinder.findPath(startCell, endCell);
+            console.timeEnd(`PATHFIND_${this.unit.id}`);
 
             if (!this.path || this.path.length === 0) {
                 this.isComplete = true;
