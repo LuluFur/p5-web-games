@@ -732,6 +732,19 @@ class Game {
             this.visibilityManager.drawVisionRangesDebug(this.localPlayer, this.unitManager, this.buildingManager);
         }
 
+        // Draw sight range for selected building
+        if (this.selectionManager && this.buildingManager) {
+            const selectedBuilding = this.selectionManager.getSelectedBuilding();
+            if (selectedBuilding) {
+                push();
+                strokeWeight(2);
+                stroke(100, 255, 100, 100);
+                noFill();
+                circle(selectedBuilding.x, selectedBuilding.y, selectedBuilding.visionRange * 2);
+                pop();
+            }
+        }
+
         pop();
 
         // Draw screen flash
