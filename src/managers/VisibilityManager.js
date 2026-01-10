@@ -247,9 +247,9 @@ class VisibilityManager {
         const radiusInCells = Math.ceil(visionRange / cellSize);
         const visionRangeSq = visionRange * visionRange;
 
-        // Pre-compute source center
-        const sourceCenterX = source.x + cellSize / 2;
-        const sourceCenterY = source.y + cellSize / 2;
+        // Pre-compute source center (source.x/y are already building centers)
+        const sourceCenterX = source.x;
+        const sourceCenterY = source.y;
 
         for (let dx = -radiusInCells; dx <= radiusInCells; dx++) {
             const gridX = centerGridX + dx;
