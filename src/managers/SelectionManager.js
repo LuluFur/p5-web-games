@@ -47,8 +47,6 @@ class SelectionManager {
         // Box selection appearance
         this.boxFillColor = color(0, 255, 0, 30);
         this.boxStrokeColor = color(0, 255, 0, 200);
-
-        console.log("SelectionManager: Initialized");
     }
 
     /**
@@ -181,7 +179,6 @@ class SelectionManager {
         building.selected = true;  // Building uses 'selected' not 'isSelected'
 
         this.emitSelectionChanged();
-        console.log(`Selected building: ${building.name || building.type}`);
     }
 
     /**
@@ -426,8 +423,6 @@ class SelectionManager {
                 this.controlGroups[index].push(unit);
             }
         }
-
-        console.log(`SelectionManager: Added to control group ${groupNum}, now ${this.controlGroups[index].length} units`);
     }
 
     // ========================================

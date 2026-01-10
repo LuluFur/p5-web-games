@@ -105,7 +105,6 @@ class SpellManager {
                 Game.instance.triggerShake(3);
             }
             if (typeof window.Sounds !== 'undefined') window.Sounds.play('freeze');
-            console.log('Frost Field cast!');
         }
         else if (this.activeSpell === 'meteor') {
             // Instant damage in area
@@ -131,7 +130,6 @@ class SpellManager {
                 timer: 60,
                 color: spell.color
             });
-            console.log('Meteor strike!');
         }
 
         this.activeSpell = null;

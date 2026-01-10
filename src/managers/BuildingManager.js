@@ -130,13 +130,11 @@ class BuildingManager {
 
         // Check if player can afford it (using cached info)
         if (player.resources.tiberium < info.cost) {
-            console.log(`Cannot afford ${buildingType}: need ${info.cost}, have ${player.resources.tiberium}`);
             return false;
         }
 
         // Check tech requirements
         if (!this.meetsRequirements(buildingType, player)) {
-            console.log(`Requirements not met for ${buildingType}`);
             return false;
         }
 
@@ -249,11 +247,6 @@ class BuildingManager {
 
         // Check if building fits on grid
         if (!this.ghostBuilding.canPlaceAt(grid, gx, gy)) {
-            // Debug: why can't we place?
-            if (this._lastDebugTime !== Math.floor(millis() / 1000)) {
-                this._lastDebugTime = Math.floor(millis() / 1000);
-                console.log(`Cannot place at grid (${gx}, ${gy}):`, this.debugPlacement(grid, gx, gy));
-            }
             return false;
         }
 

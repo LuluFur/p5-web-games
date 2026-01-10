@@ -56,8 +56,6 @@ class EventManager {
         this.listeners = new Map(); // eventName -> Set of callbacks
         this.eventHistory = []; // For debugging
         this.maxHistory = 100;
-
-        console.log('EventManager: Initialized');
     }
 
     /**

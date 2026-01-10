@@ -397,21 +397,18 @@ class AIController {
         // Check if we can afford it
         const cost = this.getBuildingCost(buildingType);
         if (this.player.resources.tiberium < cost) {
-            console.log(`AI: Cannot afford ${buildingType} (need ${cost}, have ${this.player.resources.tiberium})`);
             return false;
         }
 
         // Check if building requirements are met
         const buildingManager = Game.instance.buildingManager;
         if (!buildingManager.meetsRequirements(buildingType, this.player)) {
-            console.log(`AI: Building requirements not met for ${buildingType}`);
             return false;
         }
 
         // Find valid placement
         const position = this.findBuildingPlacement(buildingType);
         if (!position) {
-            console.log(`AI: Cannot find valid placement for ${buildingType}`);
             return false;
         }
 

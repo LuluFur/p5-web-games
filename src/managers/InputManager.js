@@ -285,7 +285,6 @@ class InputManager {
         if (target instanceof Tower && target !== tower) {
             // Try to merge towers of same type
             if (towerManager.attemptMerge(tower, target)) {
-                console.log("Merge successful!");
                 // Clear ALL drag state immediately after successful merge
                 // Even though tower was deleted from grid, clear its properties
                 // to prevent any ghost references
@@ -299,7 +298,6 @@ class InputManager {
                 this.draggingTower = null;
                 return;
             } else {
-                console.log("Cannot merge - different type or rank");
                 // JUICE: Failed merge feedback
                 if (window.Sounds) window.Sounds.play('error', 0.4);
                 if (grid.flashInvalidTile) {
@@ -312,7 +310,6 @@ class InputManager {
         // Dropped on empty space - try to move tower
         else if (target === 0) {
             if (towerManager.moveTower(tower, cell.r, cell.c)) {
-                console.log("Tower moved!");
                 // Play movement sound
                 if (window.Sounds) window.Sounds.play('build', 0.5);
                 // Clear drag state after successful move
@@ -322,7 +319,6 @@ class InputManager {
                 this.draggingTower = null;
                 return;
             } else {
-                console.log("Cannot move tower there");
                 // JUICE: Failed move feedback
                 if (window.Sounds) window.Sounds.play('error', 0.3);
                 this.cancelDrag();

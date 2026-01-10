@@ -80,7 +80,6 @@ class Tower {
             Game.instance.spawnParticles(x, y, particleCount, this.getMergeColor());
         }
 
-        console.log(`${this.type} merged to rank ${this.mergeRank}!`);
         return true;
     }
 

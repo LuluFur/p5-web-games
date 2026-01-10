@@ -159,10 +159,7 @@ class ProductionPanel {
 
                 // Try to queue unit production
                 if (this.selectedBuilding.queueUnit) {
-                    const success = this.selectedBuilding.queueUnit(button.unitType);
-                    if (success) {
-                        console.log(`ProductionPanel: Queued ${button.unitType}`);
-                    }
+                    this.selectedBuilding.queueUnit(button.unitType);
                 }
                 return true;
             }

@@ -30,8 +30,6 @@ class UnitManager {
         // Counters
         this.nextUnitId = 1;
         this.totalUnitsCreated = 0;
-
-        console.log("UnitManager: Initialized");
     }
 
     // ========================================

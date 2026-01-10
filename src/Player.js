@@ -213,7 +213,6 @@ class Player {
      */
     addPower(amount) {
         this.resources.power += amount;
-        console.log(`Player ${this.name}: Power increased to ${this.resources.power}`);
     }
 
     /**
@@ -222,7 +221,6 @@ class Player {
      */
     removePower(amount) {
         this.resources.power = Math.max(0, this.resources.power - amount);
-        console.log(`Player ${this.name}: Power decreased to ${this.resources.power}`);
     }
 
     // ========================================

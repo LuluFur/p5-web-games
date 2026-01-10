@@ -27,8 +27,6 @@ class ResourceManager {
         // Spawn configuration
         this.minFieldDistance = 200; // Minimum distance between fields
         this.initialFieldCount = 6;  // Fields to spawn at game start
-
-        console.log("ResourceManager: Initialized");
     }
 
     /**
@@ -365,7 +363,6 @@ class ResourceManager {
         }
         this.fields = [];
         this.game = null;
-        console.log('ResourceManager: Destroyed');
     }
 
     /**
@@ -386,7 +383,6 @@ class ResourceManager {
             if (field.destroy) field.destroy();
         }
         this.fields = [];
-        console.log("ResourceManager: Cleared all fields");
     }
 }
 

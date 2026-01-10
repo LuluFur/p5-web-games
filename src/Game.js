@@ -53,12 +53,13 @@ class Game {
         this.lastFrameTime = 0;
         this.deltaTime = 0;
 
-        console.log("Game: Instance created");
+        // Performance monitoring (infrequent logging)
+        this.lastPerfLog = 0;
+        this.perfLogInterval = 5000; // Log performance every 5 seconds
     }
 
     init() {
         // Show main menu first
-        console.log("Game: Showing main menu...");
         this.state = GameState.MAIN_MENU;
     }
 
@@ -66,7 +67,6 @@ class Game {
      * Start a new RTS game (called from main menu)
      */
     startNewGame() {
-        console.log("Game: Starting new RTS game...");
         this.initRTS();
     }
 
@@ -78,12 +78,9 @@ class Game {
      * Clean up previous game state to prevent memory leaks
      */
     cleanupPreviousGame() {
-        console.log("Game: Cleaning up previous game state...");
-
         // Clear event listeners
         if (window.EVENTS) {
             window.EVENTS.removeAllListeners();
-            console.log("Game: Cleared all event listeners");
         }
 
         // Clean up AI controllers
@@ -92,7 +89,6 @@ class Game {
                 if (ai.cleanup) ai.cleanup();
             }
             this.aiControllers = [];
-            console.log("Game: Cleared AI controllers");
         }
 
         // Clean up managers
@@ -117,8 +113,6 @@ class Game {
             this.players = [];
         }
         this.localPlayer = null;
-
-        console.log("Game: Previous game cleanup complete");
     }
 
     /**
@@ -126,7 +120,6 @@ class Game {
      * Called when starting a new RTS game
      */
     initRTS() {
-        console.log("Game: Initializing RTS mode...");
         this.isRTSMode = true;
 
         // Debug visualization flags
@@ -192,8 +185,6 @@ class Game {
                     y: this.mapGenerator.startPositions[1].pixelY
                 };
             }
-            console.log('Player 1 start:', this.localPlayer.startPosition);
-            console.log('Player 2 start:', this.players[1].startPosition);
         }
 
         // Initialize RTS Managers
@@ -224,9 +215,7 @@ class Game {
             this.resourceManager.initializeFields();
 
             // Verify fields were created
-            console.log(`Game: ResourceManager initialized with ${this.resourceManager.fields.length} tiberium fields`);
             if (this.resourceManager.fields.length === 0) {
-                console.error('Game: WARNING - No tiberium fields created! Creating emergency fallback fields.');
                 // Create emergency fallback fields near each player
                 for (const player of this.players) {
                     if (player.startPosition) {
@@ -235,7 +224,6 @@ class Game {
                         const fx = player.startPosition.x + Math.cos(angle) * dist;
                         const fy = player.startPosition.y + Math.sin(angle) * dist;
                         this.resourceManager.createField(fx, fy, 'green');
-                        console.log(`Game: Created emergency field at (${fx.toFixed(0)}, ${fy.toFixed(0)}) near ${player.name}`);
                     }
                 }
             }
@@ -258,8 +246,6 @@ class Game {
         // Set state to RTS_PLAY
         this.setState(GameState.RTS_PLAY);
         this.lastFrameTime = millis();
-
-        console.log("Game: RTS mode initialized");
     }
 
     /**
@@ -277,8 +263,6 @@ class Game {
 
         // Clamp to valid bounds
         this.updateCamera();
-
-        console.log(`Game: Camera centered on player at (${startPos.x}, ${startPos.y})`);
     }
 
     /**
@@ -320,8 +304,6 @@ class Game {
         // Top-right corner of the map
         aiPlayer.startPosition = { x: mapWidth - margin, y: margin };
         this.players.push(aiPlayer);
-
-        console.log(`Game: Created ${this.players.length} players`);
     }
 
     /**
@@ -339,7 +321,6 @@ class Game {
                     .build();
 
                 this.aiControllers.push(aiController);
-                console.log(`Game: Created AI Controller for ${player.name} (${aiController.personality}, ${aiController.difficulty})`);
             }
         }
     }
@@ -382,8 +363,6 @@ class Game {
                 );
             }
         }
-
-        console.log("Game: Initial units spawned");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -393,7 +372,6 @@ class Game {
     setState(newState) {
         let oldState = this.state;
         this.state = newState;
-        console.log(`Game: State changed to ${this.state}`);
 
         // Emit state change event
         if (typeof EVENTS !== 'undefined') {
@@ -478,6 +456,15 @@ class Game {
 
         // Check victory/defeat conditions
         this.checkRTSEndConditions();
+
+        // Smart performance logging (every 5 seconds only)
+        if (now - this.lastPerfLog > this.perfLogInterval) {
+            this.lastPerfLog = now;
+            const fps = Math.round(frameRate());
+            const unitCount = this.unitManager ? this.unitManager.units.length : 0;
+            const buildingCount = this.buildingManager ? this.buildingManager.buildings.length : 0;
+            console.log(`[PERF] FPS: ${fps} | Units: ${unitCount} | Buildings: ${buildingCount}`);
+        }
     }
 
     draw() {

@@ -204,7 +204,6 @@ class MoveCommand extends Command {
             if (moved < 0.1) {
                 this.stuckTimer += deltaTime; // Accumulate time in seconds
                 if (this.stuckTimer > 2.0) { // 2 seconds
-                    console.log('MoveCommand: Unit stuck, cancelling');
                     this.isComplete = true;
                     this.unit.state = RTS_UNIT_STATES.IDLE;
                     return false;

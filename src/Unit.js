@@ -667,8 +667,6 @@ class Unit {
     }
 
     onRankUp() {
-        console.log(`${this.name} promoted to ${this.rank}!`);
-
         // Visual effect
         if (Game && Game.instance) {
             Game.instance.spawnParticles(this.x, this.y - 20, 10, color(255, 215, 0));
@@ -781,6 +779,9 @@ class Unit {
 
         // Draw unit body (override in subclasses)
         this.drawBody();
+
+        // CRITICAL: Reset tint immediately after drawing
+        noTint();
 
         pop();
 

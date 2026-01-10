@@ -3,8 +3,6 @@ class StatsManager {
     constructor(game) {
         this.game = game;
         this.reset();
-
-        console.log("StatsManager: Initialized");
     }
 
     reset() {
