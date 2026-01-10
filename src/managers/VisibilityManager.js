@@ -62,8 +62,8 @@ class VisibilityManager {
         if (!players || !unitManager || !buildingManager) return;
 
         for (const player of players) {
-            // SMART THROTTLE: Only update if any player unit moved significantly
-            const shouldUpdate = this.shouldUpdatePlayerVisibility(player, unitManager);
+            // SMART THROTTLE: Only update if any player unit moved significantly or buildings changed
+            const shouldUpdate = this.shouldUpdatePlayerVisibility(player, unitManager, buildingManager);
 
             if (shouldUpdate) {
                 // Update which enemy units/buildings are visible
@@ -82,7 +82,7 @@ class VisibilityManager {
      * Only updates when units move > 1/5 of their vision range
      * Reduces expensive spatial queries from 60fps to ~10fps
      */
-    shouldUpdatePlayerVisibility(player, unitManager) {
+    shouldUpdatePlayerVisibility(player, unitManager, buildingManager) {
         // Initialize cache
         if (!this._visibilityUpdateCache) {
             this._visibilityUpdateCache = new Map();
@@ -91,11 +91,21 @@ class VisibilityManager {
         const cacheKey = `player_${player.id}`;
         const cache = this._visibilityUpdateCache.get(cacheKey) || {
             lastUpdateTime: 0,
-            lastUnitPositions: new Map()
+            lastUnitPositions: new Map(),
+            lastBuildingCount: 0
         };
 
         const playerUnits = unitManager.unitsByPlayer.get(player) || [];
+        const playerBuildings = buildingManager
+            ? buildingManager.buildings.filter(b => b.owner === player && b.active && !b.isDead())
+            : [];
         let hasMeaningfulMovement = false;
+
+        // Check if building count changed (new building placed or destroyed)
+        if (playerBuildings.length !== cache.lastBuildingCount) {
+            cache.lastBuildingCount = playerBuildings.length;
+            hasMeaningfulMovement = true; // Force update when buildings change
+        }
 
         // Check if any unit moved more than 1/5 of its vision range
         for (const unit of playerUnits) {
