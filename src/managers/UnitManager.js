@@ -112,7 +112,7 @@ class UnitManager {
                 damage: 10,
                 attackSpeed: 1.0,
                 range: 100,
-                sightRange: 200,
+                sightRange: 5,
                 cost: 100,
                 buildTime: 3
             },
@@ -124,7 +124,7 @@ class UnitManager {
                 damage: 25,
                 attackSpeed: 0.5,
                 range: 150,
-                sightRange: 250,
+                sightRange: 7,
                 cost: 500,
                 buildTime: 8
             },
@@ -134,7 +134,7 @@ class UnitManager {
                 health: 400,
                 speed: 2.8,
                 damage: 0,
-                sightRange: 150,
+                sightRange: 6,
                 cost: 1000,
                 buildTime: 10,
                 harvestCapacity: 1000,

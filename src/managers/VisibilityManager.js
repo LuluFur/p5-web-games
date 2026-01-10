@@ -158,16 +158,6 @@ class VisibilityManager {
 
         if (visionSources.length === 0) return;
 
-        // DEBUG: Log vision sources on first frame
-        if (!this._debugLoggedVisionSources) {
-            this._debugLoggedVisionSources = true;
-            console.log(`[FOW] Player ${player.id} has ${visionSources.length} vision sources:`);
-            for (const source of visionSources) {
-                const range = this.getVisionRange(source);
-                console.log(`  - ${source.name || source.type}: vision range = ${range}px (${(range/cellSize).toFixed(1)} cells)`);
-            }
-        }
-
         // Initialize player caches if needed
         if (!this.unitVisionCache.has(player.id)) {
             this.unitVisionCache.set(player.id, new Map());
