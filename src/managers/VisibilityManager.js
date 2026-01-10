@@ -164,21 +164,13 @@ class VisibilityManager {
         }
         const playerUnitCache = this.unitVisionCache.get(player.id);
 
-        // CRITICAL OPTIMIZATION: Only update explored cells when grid cell changes
-        // If FOW rendering is disabled (default), skip string conversion entirely
-        const buildStringSets = Game.instance && Game.instance.showFogOfWar;
+        // Always calculate visible cells so FOW works when enabled
+        player.visibleCells.clear();
 
-        // Only clear if we need to track visible cells
-        if (buildStringSets) {
-            player.visibleCells.clear();
-        }
+        // Track explored cells only if FOW is being rendered (optimization)
+        const trackExploredCells = Game.instance && Game.instance.showFogOfWar;
 
-        // ULTRA-OPTIMIZATION: Skip entire grid tracking if FOW is disabled
-        if (!buildStringSets) {
-            return; // FOW rendering disabled - skip expensive grid cell tracking
-        }
-
-        // Only execute this code path if FOW rendering is enabled
+        // Calculate visibility for all vision sources
         for (const source of visionSources) {
             const sourceId = source.id;
             const cacheKey = `${source.constructor.name}_${sourceId}`;
@@ -211,7 +203,11 @@ class VisibilityManager {
                 for (const integerKey of sourceVisionCells) {
                     const stringKey = this.integerKeyToString(integerKey);
                     player.visibleCells.add(stringKey);
-                    player.exploredCells.add(stringKey);
+
+                    // Only track explored cells if FOW rendering is enabled (optimization)
+                    if (trackExploredCells) {
+                        player.exploredCells.add(stringKey);
+                    }
                 }
             }
         }
