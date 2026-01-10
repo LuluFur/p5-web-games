@@ -171,11 +171,14 @@ class Unit {
 
         // Apply stance behavior when no current command (allows automatic re-targeting)
         if (!this.currentCommand) {
-            // Reset to IDLE if in another state with no command
-            if (this.state !== RTS_UNIT_STATES.IDLE) {
+            // Reset to IDLE if in another state with no command (but NOT if dying)
+            if (this.state !== RTS_UNIT_STATES.IDLE && this.state !== RTS_UNIT_STATES.DYING) {
                 this.state = RTS_UNIT_STATES.IDLE;
             }
-            this.applyStanceBehavior(deltaTime);
+            // Only apply stance behavior if not dying
+            if (this.state !== RTS_UNIT_STATES.DYING) {
+                this.applyStanceBehavior(deltaTime);
+            }
         }
 
         // Self-healing for heroic units
