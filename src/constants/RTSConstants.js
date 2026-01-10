@@ -360,7 +360,8 @@ const RTS_BUILDINGS = {
         footprint: { w: 3, h: 3 },
         isCore: true,           // Loss = defeat
         tier: 0,
-        prerequisites: []
+        prerequisites: [],
+        visionRange: 200        // Moderate vision (6 cells)
     },
 
     POWER_PLANT: {
