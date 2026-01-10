@@ -1028,7 +1028,7 @@ class ConstructionYard extends Building {
             buildTime: 0,
             powerOutput: 0,
             powerConsumption: 0,
-            visionRange: 432  // 2x vision (13.5 cells)
+            visionRange: 448  // 2x build radius (14 cells)
         });
 
         // ConYard starts complete
@@ -1124,7 +1124,7 @@ class Barracks extends Building {
             buildTime: 10,
             powerOutput: 0,
             powerConsumption: 20,
-            visionRange: 176  // Moderate vision (5.5 cells - half tile increase)
+            visionRange: 448  // 2x build radius (14 cells)
         });
 
         // Units this building can produce
@@ -1185,7 +1185,7 @@ class Refinery extends Building {
             buildTime: 12,
             powerOutput: 0,
             powerConsumption: 30,
-            visionRange: 156  // Low-moderate vision (4.875 cells - half tile increase)
+            visionRange: 448  // 2x build radius (14 cells)
         });
 
         // Refinery spawns a harvester on completion
@@ -1247,7 +1247,7 @@ class WarFactory extends Building {
             buildTime: 15,
             powerOutput: 0,
             powerConsumption: 40,
-            visionRange: 196  // Moderate vision (6.125 cells - half tile increase)
+            visionRange: 448  // 2x build radius (14 cells)
         });
 
         // Units this building can produce
@@ -1380,7 +1380,7 @@ class GuardTower extends Building {
             buildTime: 6,
             powerOutput: 0,
             powerConsumption: 15,
-            visionRange: 266  // 8.3 cell vision (half tile increase)
+            visionRange: 448  // 2x build radius (14 cells)
         });
 
         // Combat stats - buffed for rapid-fire infantry shredding
@@ -1573,7 +1573,7 @@ class Radar extends Building {
             buildTime: 15,
             powerOutput: 0,
             powerConsumption: 40,
-            visionRange: 496  // Longest vision range (15.5 cells - half tile increase)
+            visionRange: 448  // 2x build radius (14 cells)
         });
 
         // Radar functionality
