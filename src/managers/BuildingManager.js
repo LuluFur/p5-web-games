@@ -19,7 +19,7 @@ class BuildingManager {
         this.isPowered = true;
 
         // Construction settings
-        this.buildRadius = 14; // Cells from existing buildings (matches Construction Yard vision range)
+        this.buildRadius = 7; // Cells from existing buildings (half of Construction Yard vision range)
 
         // Building registry
         this.buildingTypes = {
