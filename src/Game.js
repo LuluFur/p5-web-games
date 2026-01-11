@@ -280,13 +280,21 @@ class Game {
         const mapHeight = this.grid ? this.grid.rows * cellSize : 2048;
         const margin = 4 * cellSize;  // 4 cells from edge
 
+        // Faction selection (Phase 6 will add UI for this, for now default to ALLIANCE)
+        const humanFaction = this.rtsSettings?.playerFaction || 'ALLIANCE';
+
+        // AI faction: rotate through available factions for variety
+        const aiFactions = ['SYNDICATE', 'COLLECTIVE', 'ALLIANCE'];
+        const aiFaction = aiFactions[Math.floor(Math.random() * aiFactions.length)];
+
         // Create human player
         this.localPlayer = new Player({
             id: 0,
             name: 'Player',
             isHuman: true,
             team: 0,
-            color: { r: 0, g: 150, b: 255 }
+            faction: humanFaction
+            // Color will be set from faction color scheme in Player constructor
         });
         this.localPlayer.resources.tiberium = this.rtsSettings.startingResources;
         // Bottom-left corner of the map
@@ -296,17 +304,20 @@ class Game {
         // Create AI opponent
         const aiPlayer = new Player({
             id: 1,
-            name: 'AI Commander',
+            name: `AI Commander (${aiFaction})`,
             isHuman: false,
             team: 1,
-            color: { r: 255, g: 50, b: 50 },
+            faction: aiFaction,
             aiPersonality: this.rtsSettings.aiPersonality,
             aiDifficulty: this.rtsSettings.difficulty
+            // Color will be set from faction color scheme in Player constructor
         });
         aiPlayer.resources.tiberium = this.rtsSettings.startingResources;
         // Top-right corner of the map
         aiPlayer.startPosition = { x: mapWidth - margin, y: margin };
         this.players.push(aiPlayer);
+
+        console.log(`Game: Players initialized - Human: ${humanFaction}, AI: ${aiFaction}`);
     }
 
     /**
