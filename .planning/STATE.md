@@ -8,7 +8,7 @@
 
 **Milestone 1** — Full RTS game (7 phases)
 
-**Status:** Phase 1 ready to plan
+**Status:** Phase 1 planned, ready to execute
 
 ---
 
@@ -16,7 +16,7 @@
 
 | Phase | Name | Status | Plans | Completion |
 |-------|------|--------|-------|------------|
-| 1 | Foundation & Cleanup | Not Started | 0/0 | 0% |
+| 1 | Foundation & Cleanup | Planned | 1/1 | 0% |
 | 2 | Faction System | Not Started | 0/0 | 0% |
 | 3 | Procedural Map Generation | Not Started | 0/0 | 0% |
 | 4 | AI Enhancement | Not Started | 0/0 | 0% |
@@ -30,7 +30,14 @@
 
 ## Active Work
 
-**None** — ready to plan Phase 1
+**Phase 1: Foundation & Cleanup** — phase-1-cleanup-PLAN.md
+
+**Tasks:**
+1. Remove Tower.js and index.html reference
+2. Clean up TD references in managers
+3. Clean up TD constants in GameConstants.js
+4. Update BuilderTests.js
+5. Verify RTS game launches without errors
 
 ---
 
