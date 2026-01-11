@@ -109,53 +109,80 @@ class MapGenerator {
      * @returns {Object} Generated map data
      */
     generate() {
-        // Clear previous generation
-        this.startPositions = [];
-        this.tiberiumFields = [];
-        this.terrainFeatures = [];
-        this.pathClearances = [];
-        this.surfaceMap = [];
-        this.riverPaths = [];
-        this.chokePoints = [];
-        this.expansionZones = [];
+        const maxAttempts = 10;
+        let attempt = 0;
+        let pathfindingValid = false;
 
-        // Set noise seed for reproducibility
-        if (typeof noiseSeed === 'function') {
-            noiseSeed(this.seed);
+        // Retry generation until valid pathfinding or max attempts reached
+        while (!pathfindingValid && attempt < maxAttempts) {
+            if (attempt > 0) {
+                console.warn(`MapGenerator: Pathfinding validation failed, retrying generation (attempt ${attempt + 1}/${maxAttempts})`);
+                // Generate new seed for retry
+                this.seed = Math.floor(Math.random() * 100000);
+                this.rng = this.createSeededRandom(this.seed);
+            }
+
+            // Clear previous generation
+            this.startPositions = [];
+            this.tiberiumFields = [];
+            this.terrainFeatures = [];
+            this.pathClearances = [];
+            this.surfaceMap = [];
+            this.riverPaths = [];
+            this.chokePoints = [];
+            this.expansionZones = [];
+
+            // Set noise seed for reproducibility
+            if (typeof noiseSeed === 'function') {
+                noiseSeed(this.seed);
+            }
+
+            console.log(`MapGenerator: Generating map with seed ${this.seed}`);
+
+            // Step 1: Place construction yards FIRST (needed for POI masking)
+            this.generateStartPositions();
+
+            // Step 2: Place tiberium fields (needed for POI masking)
+            this.generateTiberiumFields();
+
+            // Step 3: Generate expansion zones (after tiberium to avoid overlap)
+            this.generateExpansionZones();
+
+            // Step 4: Generate base terrain surfaces with Perlin noise (masks out POIs)
+            this.generateSurfaceMap();
+
+            // Step 5: Generate choke points between bases (after surface map created)
+            this.generateChokePoints();
+
+            // Step 6: Generate rivers using noise-based flow
+            this.generateRivers();
+
+            // Step 7: Apply smooth terrain transitions around bases
+            this.applyBaseTerrainTransitions();
+
+            // Step 8: Calculate path clearances between bases
+            this.calculatePathClearances();
+
+            // Step 9: Add terrain features (avoiding paths, bases, chokes, expansions)
+            this.generateTerrainFeatures();
+
+            // Step 10: Apply to grid if provided
+            if (this.grid) {
+                this.applyToGrid();
+            }
+
+            // Step 11: Validate pathfinding between bases
+            pathfindingValid = this.validatePathfinding();
+
+            if (!pathfindingValid) {
+                attempt++;
+            }
         }
 
-        console.log(`MapGenerator: Generated map with seed ${this.seed}`);
-
-        // Step 1: Place construction yards FIRST (needed for POI masking)
-        this.generateStartPositions();
-
-        // Step 2: Place tiberium fields (needed for POI masking)
-        this.generateTiberiumFields();
-
-        // Step 3: Generate expansion zones (after tiberium to avoid overlap)
-        this.generateExpansionZones();
-
-        // Step 4: Generate base terrain surfaces with Perlin noise (masks out POIs)
-        this.generateSurfaceMap();
-
-        // Step 5: Generate choke points between bases (after surface map created)
-        this.generateChokePoints();
-
-        // Step 6: Generate rivers using noise-based flow
-        this.generateRivers();
-
-        // Step 7: Apply smooth terrain transitions around bases
-        this.applyBaseTerrainTransitions();
-
-        // Step 8: Calculate path clearances between bases
-        this.calculatePathClearances();
-
-        // Step 9: Add terrain features (avoiding paths, bases, chokes, expansions)
-        this.generateTerrainFeatures();
-
-        // Step 10: Apply to grid if provided
-        if (this.grid) {
-            this.applyToGrid();
+        if (!pathfindingValid) {
+            console.error(`MapGenerator: Failed to generate valid map after ${maxAttempts} attempts`);
+        } else if (attempt > 0) {
+            console.log(`MapGenerator: Successfully generated valid map after ${attempt + 1} attempts`);
         }
 
         return {
@@ -1096,6 +1123,52 @@ class MapGenerator {
      */
     getExpansionZones() {
         return this.expansionZones;
+    }
+
+    /**
+     * Validate pathfinding between all player bases
+     * Ensures at least one valid path exists between bases
+     * @returns {boolean} True if all bases are connected, false otherwise
+     */
+    validatePathfinding() {
+        if (!this.grid || this.startPositions.length < 2) {
+            return true;  // Nothing to validate
+        }
+
+        // Check pathfinding between all pairs of bases
+        for (let i = 0; i < this.startPositions.length; i++) {
+            for (let j = i + 1; j < this.startPositions.length; j++) {
+                const start = this.startPositions[i];
+                const end = this.startPositions[j];
+
+                // Use Pathfinder to find path between bases
+                if (typeof Pathfinder !== 'undefined') {
+                    const path = Pathfinder.findPathWorld(
+                        this.grid,
+                        start.pixelX,
+                        start.pixelY,
+                        end.pixelX,
+                        end.pixelY,
+                        { useCache: false }
+                    );
+
+                    if (!path || path.length === 0) {
+                        console.warn(`MapGenerator: No valid path between player ${start.playerId} and player ${end.playerId}`);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Get map seed for display/debug
+     * @returns {number} The random seed used for this map
+     */
+    getMapSeed() {
+        return this.seed;
     }
 
     /**

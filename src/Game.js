@@ -43,11 +43,15 @@ class Game {
 
         // RTS Game Settings (set in NEW_GAME_SETUP)
         this.rtsSettings = {
-            mapSize: 'medium',
+            mapSize: 'MEDIUM',  // SMALL, MEDIUM, or LARGE (MAP_SIZES constant)
             aiPersonality: 'RUSHER',
             difficulty: 'NORMAL',
             startingResources: 5000
         };
+
+        // Store map features for AI access
+        this.chokePoints = [];
+        this.expansionZones = [];
 
         // Delta time tracking for RTS
         this.lastFrameTime = 0;
@@ -133,14 +137,21 @@ class Game {
         this.eventManager = window.EVENTS || new EventManager();
 
         // Initialize RTS Grid (larger than tower defense)
+        // Get map size configuration
+        const mapSizePreset = this.rtsSettings.mapSize || 'MEDIUM';
+        const mapSize = (typeof MAP_SIZES !== 'undefined' && MAP_SIZES[mapSizePreset]) ?
+            MAP_SIZES[mapSizePreset] : { rows: 96, cols: 96 };
+
         const gridConfig = RTS_GRID || { CELL_SIZE: 32, DEFAULT_COLS: 64, DEFAULT_ROWS: 64 };
         this.grid = new Grid(
-            gridConfig.DEFAULT_ROWS,
-            gridConfig.DEFAULT_COLS,
+            mapSize.rows,
+            mapSize.cols,
             gridConfig.CELL_SIZE,
             1, // levelId (not used in RTS)
             { isRTSMode: true, skipTrees: true } // RTS options
         );
+
+        console.log(`Game: Initializing RTS grid with size ${mapSize.name || mapSizePreset} (${mapSize.rows}×${mapSize.cols})`);
 
         // Unlock all rows for RTS (no fog of war progression)
         this.grid.unlockStart = 0;
@@ -164,14 +175,25 @@ class Game {
         // Initialize Players (before MapGenerator so we have start positions)
         this.initPlayers();
 
-        // Generate map using MapGenerator
-        this.mapGenerator = MapGenerator.Builder.twoPlayer(this.grid);
-        this.mapGenerator.generate();
+        // Generate map using MapGenerator with size preset
+        this.mapGenerator = MapGenerator.Builder.create()
+            .withGrid(this.grid)
+            .withSizePreset(mapSizePreset)
+            .symmetric2Player()
+            .build();
+
+        const mapData = this.mapGenerator.generate();
 
         // Apply surface map to grid
-        if (this.mapGenerator.surfaceMap) {
-            this.grid.setSurfaceMap(this.mapGenerator.surfaceMap);
+        if (mapData.surfaceMap) {
+            this.grid.setSurfaceMap(mapData.surfaceMap);
         }
+
+        // Store choke points and expansion zones for AI access
+        this.chokePoints = mapData.chokePoints || [];
+        this.expansionZones = mapData.expansionZones || [];
+
+        console.log(`Game: Map generated with ${this.chokePoints.length} choke points and ${this.expansionZones.length} expansion zones`);
 
         // Set player start positions from MapGenerator (use pre-computed pixel coordinates)
         if (this.mapGenerator.startPositions.length >= 2) {
