@@ -45,31 +45,34 @@ class UnitManager {
      * @returns {Unit} The created unit
      */
     createUnit(unitType, x, y, owner) {
-        // Get unit configuration
-        const config = this.getUnitConfig(unitType);
+        // Get unit configuration (faction-aware)
+        const config = this.getUnitConfig(unitType, owner);
 
         if (!config) {
-            console.error(`UnitManager: Unknown unit type "${unitType}"`);
+            console.error(`UnitManager: Unknown unit type "${unitType}" for faction ${owner?.faction || 'UNKNOWN'}`);
             return null;
         }
+
+        // Apply faction bonuses to config
+        const finalConfig = this.applyFactionBonuses(config, owner);
 
         // Create appropriate unit class
         let unit;
         // Normalize type to uppercase for comparison (RTS_UNIT_TYPES uses uppercase)
-        const unitTypeNormalized = (config.type || '').toUpperCase();
+        const unitTypeNormalized = (finalConfig.type || '').toUpperCase();
 
         switch (unitTypeNormalized) {
             case 'INFANTRY':
-                unit = new InfantryUnit(x, y, owner, config);
+                unit = new InfantryUnit(x, y, owner, finalConfig);
                 break;
             case 'VEHICLE':
-                unit = new VehicleUnit(x, y, owner, config);
+                unit = new VehicleUnit(x, y, owner, finalConfig);
                 break;
             case 'HARVESTER':
-                unit = new HarvesterUnit(x, y, owner, config);
+                unit = new HarvesterUnit(x, y, owner, finalConfig);
                 break;
             default:
-                unit = new Unit(x, y, owner, config);
+                unit = new Unit(x, y, owner, finalConfig);
         }
 
         // Assign unique ID
@@ -84,7 +87,8 @@ class UnitManager {
             this.game.eventManager.emit('UNIT_CREATED', {
                 unit: unit,
                 type: unitType,
-                owner: owner
+                owner: owner,
+                faction: owner?.faction
             });
         }
 
@@ -92,21 +96,29 @@ class UnitManager {
     }
 
     /**
-     * Get unit configuration by type
-     * @param {string} unitType
+     * Get unit configuration by type (faction-aware)
+     * @param {string} unitType - Unit type ID
+     * @param {Player} owner - Owner player (for faction lookup)
      * @returns {object|null}
      */
-    getUnitConfig(unitType) {
-        // Check RTS_UNITS constant
-        if (typeof RTS_UNITS !== 'undefined' && RTS_UNITS[unitType.toUpperCase()]) {
-            return { ...RTS_UNITS[unitType.toUpperCase()], name: unitType };
+    getUnitConfig(unitType, owner) {
+        const unitTypeUpper = unitType.toUpperCase();
+
+        // First, check faction-specific units if owner has factionData
+        if (owner?.factionData?.units?.[unitTypeUpper]) {
+            return { ...owner.factionData.units[unitTypeUpper], unitType: unitTypeUpper };
         }
 
-        // Fallback default configs (speed values match RTS_UNITS scale)
+        // Fall back to generic RTS_UNITS
+        if (typeof RTS_UNITS !== 'undefined' && RTS_UNITS[unitTypeUpper]) {
+            return { ...RTS_UNITS[unitTypeUpper], unitType: unitTypeUpper };
+        }
+
+        // Final fallback: default configs (speed values match RTS_UNITS scale)
         const defaults = {
-            infantry: {
-                name: 'infantry',
-                type: 'infantry',
+            INFANTRY: {
+                name: 'Infantry',
+                type: 'INFANTRY',
                 health: 100,
                 speed: 1.5,
                 damage: 10,
@@ -116,9 +128,9 @@ class UnitManager {
                 cost: 100,
                 buildTime: 3
             },
-            vehicle: {
-                name: 'vehicle',
-                type: 'vehicle',
+            VEHICLE: {
+                name: 'Vehicle',
+                type: 'VEHICLE',
                 health: 300,
                 speed: 2.0,
                 damage: 25,
@@ -128,9 +140,9 @@ class UnitManager {
                 cost: 500,
                 buildTime: 8
             },
-            harvester: {
-                name: 'harvester',
-                type: 'harvester',
+            HARVESTER: {
+                name: 'Harvester',
+                type: 'HARVESTER',
                 health: 400,
                 speed: 2.8,
                 damage: 0,
@@ -142,7 +154,44 @@ class UnitManager {
             }
         };
 
-        return defaults[unitType] || null;
+        return defaults[unitTypeUpper] || null;
+    }
+
+    /**
+     * Apply faction bonuses to unit configuration
+     * @param {object} config - Base unit configuration
+     * @param {Player} owner - Owner player
+     * @returns {object} Config with faction bonuses applied
+     */
+    applyFactionBonuses(config, owner) {
+        if (!owner || !owner.factionData) {
+            return config;
+        }
+
+        // Clone config to avoid mutating original
+        const bonusedConfig = { ...config };
+
+        // Apply speed bonus
+        if (bonusedConfig.speed && owner.getFactionBonus('speed')) {
+            bonusedConfig.speed *= (1 + owner.getFactionBonus('speed'));
+        }
+
+        // Apply armor bonus
+        if (bonusedConfig.armor !== undefined && owner.getFactionBonus('armor')) {
+            bonusedConfig.armor *= (1 + owner.getFactionBonus('armor'));
+        }
+
+        // Apply damage bonus
+        if (bonusedConfig.damage && owner.getFactionBonus('damage')) {
+            bonusedConfig.damage *= (1 + owner.getFactionBonus('damage'));
+        }
+
+        // Apply resource efficiency to harvesters
+        if (bonusedConfig.harvestRate && owner.getFactionBonus('resourceEfficiency')) {
+            bonusedConfig.harvestRate *= (1 + owner.getFactionBonus('resourceEfficiency'));
+        }
+
+        return bonusedConfig;
     }
 
     /**

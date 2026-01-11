@@ -720,6 +720,529 @@ const RTS_MAP_GEN = {
 };
 
 // ===========================================
+// FACTION SYSTEM
+// ===========================================
+const RTS_FACTIONS = {
+    ALLIANCE: {
+        id: 'ALLIANCE',
+        name: 'Global Defense Alliance',
+        description: 'Balanced military force with superior defensive capabilities and durable units',
+        symbol: '▲',
+
+        // Visual identity
+        colorScheme: {
+            primary: { r: 50, g: 100, b: 200 },      // Blue
+            secondary: { r: 70, g: 120, b: 220 },
+            accent: { r: 200, g: 220, b: 255 }
+        },
+
+        // Faction bonuses (passive modifiers)
+        bonuses: {
+            buildingHealth: 0.15,   // +15% building health
+            armor: 0.10,            // +10% unit armor
+            speed: 0,               // No speed bonus
+            damage: 0,              // No damage bonus
+            resourceEfficiency: 0   // No resource bonus
+        },
+
+        // Starting unlocks
+        startingBuildings: ['CONSTRUCTION_YARD', 'POWER_PLANT', 'BARRACKS', 'WAR_FACTORY', 'REFINERY'],
+        startingUnits: ['HARVESTER', 'RIFLEMAN', 'ENGINEER'],
+
+        // Available units (faction-specific roster)
+        units: {
+            // Shared units
+            HARVESTER: RTS_UNITS.HARVESTER,
+            ENGINEER: RTS_UNITS.ENGINEER,
+
+            // Alliance infantry
+            RIFLEMAN: {
+                ...RTS_UNITS.RIFLEMAN,
+                name: 'Alliance Rifleman',
+                armor: 0.05  // Better armor than baseline
+            },
+            GRENADIER: {
+                type: RTS_UNIT_TYPES.INFANTRY,
+                name: 'Grenadier',
+                cost: 350,
+                buildTime: 6,
+                health: 120,
+                armor: 0.1,
+                speed: 1.3,
+                sightRange: 6,
+                attackRange: 5,
+                damage: 60,
+                fireRate: 75,
+                splashRadius: 1.5,
+                canGarrison: true,
+                tier: 1,
+                prerequisites: ['BARRACKS'],
+                abilities: ['SHIELD_REGEN']
+            },
+            ZONE_TROOPER: {
+                type: RTS_UNIT_TYPES.INFANTRY,
+                name: 'Zone Trooper',
+                cost: 800,
+                buildTime: 12,
+                health: 200,
+                armor: 0.4,
+                speed: 1.2,
+                sightRange: 7,
+                attackRange: 5,
+                damage: 80,
+                fireRate: 60,
+                canGarrison: true,
+                powerArmor: true,
+                tier: 2,
+                prerequisites: ['BARRACKS', 'ARMORY'],
+                abilities: ['SHIELD_REGEN']
+            },
+
+            // Alliance vehicles
+            TANK: {
+                ...RTS_UNITS.TANK,
+                name: 'Predator Tank',
+                health: 450,  // More HP than baseline
+                armor: 0.45
+            },
+            ARTILLERY: RTS_UNITS.ARTILLERY,
+            HEAVY_TANK: {
+                ...RTS_UNITS.HEAVY_TANK,
+                name: 'Mammoth Tank',
+                abilities: ['SHIELD_REGEN']
+            },
+            APC: {
+                type: RTS_UNIT_TYPES.VEHICLE,
+                name: 'Armored Personnel Carrier',
+                cost: 700,
+                buildTime: 9,
+                health: 350,
+                armor: 0.3,
+                speed: 2.5,
+                sightRange: 6,
+                attackRange: 4,
+                damage: 25,
+                fireRate: 20,
+                canTransport: 5,  // Carries 5 infantry
+                tier: 1,
+                prerequisites: ['WAR_FACTORY']
+            },
+
+            // Alliance aircraft
+            ORCA: RTS_UNITS.ORCA
+        },
+
+        // Available buildings
+        buildings: {
+            CONSTRUCTION_YARD: RTS_BUILDINGS.CONSTRUCTION_YARD,
+            POWER_PLANT: RTS_BUILDINGS.POWER_PLANT,
+            REFINERY: RTS_BUILDINGS.REFINERY,
+            TIBERIUM_SILO: RTS_BUILDINGS.TIBERIUM_SILO,
+            BARRACKS: RTS_BUILDINGS.BARRACKS,
+            WAR_FACTORY: RTS_BUILDINGS.WAR_FACTORY,
+            AIRFIELD: RTS_BUILDINGS.AIRFIELD,
+            ARMORY: RTS_BUILDINGS.ARMORY,
+            TECH_CENTER: RTS_BUILDINGS.TECH_CENTER,
+            RADAR: RTS_BUILDINGS.RADAR,
+            GUARD_TOWER: RTS_BUILDINGS.GUARD_TOWER,
+            SAM_SITE: RTS_BUILDINGS.SAM_SITE,
+            WALL: RTS_BUILDINGS.WALL
+        }
+    },
+
+    SYNDICATE: {
+        id: 'SYNDICATE',
+        name: 'Red Syndicate',
+        description: 'Aggressive faction favoring speed, stealth, and hit-and-run tactics',
+        symbol: '◆',
+
+        // Visual identity
+        colorScheme: {
+            primary: { r: 200, g: 50, b: 50 },       // Red
+            secondary: { r: 220, g: 70, b: 40 },
+            accent: { r: 255, g: 150, b: 100 }
+        },
+
+        // Faction bonuses
+        bonuses: {
+            buildingHealth: 0,      // No building bonus
+            armor: 0,               // No armor bonus
+            speed: 0.20,            // +20% unit speed
+            damage: 0,              // No damage bonus
+            resourceEfficiency: 0   // No resource bonus
+        },
+
+        // Starting unlocks
+        startingBuildings: ['CONSTRUCTION_YARD', 'POWER_PLANT', 'BARRACKS', 'WAR_FACTORY', 'REFINERY'],
+        startingUnits: ['HARVESTER', 'MILITANT', 'ENGINEER'],
+
+        // Available units
+        units: {
+            // Shared units
+            HARVESTER: {
+                ...RTS_UNITS.HARVESTER,
+                speed: 3.2  // Faster harvester
+            },
+            ENGINEER: RTS_UNITS.ENGINEER,
+
+            // Syndicate infantry
+            MILITANT: {
+                type: RTS_UNIT_TYPES.INFANTRY,
+                name: 'Militant',
+                cost: 120,
+                buildTime: 2,
+                health: 80,
+                armor: 0,
+                speed: 1.8,
+                sightRange: 5,
+                attackRange: 3,
+                damage: 12,
+                fireRate: 25,
+                canGarrison: true,
+                tier: 1,
+                prerequisites: ['BARRACKS']
+            },
+            SHADOW_TEAM: {
+                type: RTS_UNIT_TYPES.INFANTRY,
+                name: 'Shadow Team',
+                cost: 500,
+                buildTime: 8,
+                health: 100,
+                armor: 0,
+                speed: 2.0,
+                sightRange: 7,
+                attackRange: 4,
+                damage: 80,
+                fireRate: 60,
+                canGarrison: true,
+                tier: 2,
+                prerequisites: ['BARRACKS', 'ARMORY'],
+                abilities: ['STEALTH']
+            },
+            FLAME_TROOPER: {
+                type: RTS_UNIT_TYPES.INFANTRY,
+                name: 'Flame Trooper',
+                cost: 300,
+                buildTime: 5,
+                health: 100,
+                armor: 0.1,
+                speed: 1.4,
+                sightRange: 5,
+                attackRange: 3,
+                damage: 50,
+                fireRate: 15,
+                splashRadius: 1,
+                damageOverTime: true,
+                canGarrison: true,
+                tier: 1,
+                prerequisites: ['BARRACKS']
+            },
+
+            // Syndicate vehicles
+            ATTACK_BUGGY: {
+                type: RTS_UNIT_TYPES.VEHICLE,
+                name: 'Attack Buggy',
+                cost: 350,
+                buildTime: 5,
+                health: 120,
+                armor: 0.05,
+                speed: 4.0,
+                sightRange: 8,
+                attackRange: 4,
+                damage: 15,
+                fireRate: 15,
+                tier: 1,
+                prerequisites: ['WAR_FACTORY']
+            },
+            FLAME_TANK: {
+                type: RTS_UNIT_TYPES.VEHICLE,
+                name: 'Flame Tank',
+                cost: 900,
+                buildTime: 12,
+                health: 350,
+                armor: 0.3,
+                speed: 2.2,
+                sightRange: 6,
+                attackRange: 4,
+                damage: 40,
+                fireRate: 10,
+                splashRadius: 2,
+                damageOverTime: true,
+                tier: 2,
+                prerequisites: ['WAR_FACTORY', 'ARMORY']
+            },
+            STEALTH_TANK: {
+                ...RTS_UNITS.STEALTH_TANK,
+                speed: 3.3,
+                abilities: ['STEALTH']
+            },
+
+            // Syndicate aircraft
+            VENOM: {
+                type: RTS_UNIT_TYPES.AIRCRAFT,
+                name: 'Venom',
+                cost: 900,
+                buildTime: 11,
+                health: 180,
+                armor: 0.1,
+                speed: 4.5,
+                sightRange: 7,
+                attackRange: 5,
+                damage: 40,
+                fireRate: 20,
+                tier: 2,
+                prerequisites: ['AIRFIELD']
+            }
+        },
+
+        // Available buildings
+        buildings: {
+            CONSTRUCTION_YARD: RTS_BUILDINGS.CONSTRUCTION_YARD,
+            POWER_PLANT: {
+                ...RTS_BUILDINGS.POWER_PLANT,
+                cost: 250  // Cheaper power
+            },
+            REFINERY: RTS_BUILDINGS.REFINERY,
+            TIBERIUM_SILO: RTS_BUILDINGS.TIBERIUM_SILO,
+            BARRACKS: {
+                ...RTS_BUILDINGS.BARRACKS,
+                name: 'Hand of Nod',
+                buildTime: 8
+            },
+            WAR_FACTORY: RTS_BUILDINGS.WAR_FACTORY,
+            AIRFIELD: RTS_BUILDINGS.AIRFIELD,
+            ARMORY: {
+                ...RTS_BUILDINGS.ARMORY,
+                name: 'Secret Shrine'
+            },
+            TECH_CENTER: {
+                ...RTS_BUILDINGS.TECH_CENTER,
+                name: 'Tech Lab'
+            },
+            RADAR: RTS_BUILDINGS.RADAR,
+            GUARD_TOWER: {
+                ...RTS_BUILDINGS.GUARD_TOWER,
+                name: 'Laser Turret',
+                damage: 25,
+                fireRate: 15
+            },
+            SAM_SITE: RTS_BUILDINGS.SAM_SITE,
+            WALL: RTS_BUILDINGS.WALL
+        }
+    },
+
+    COLLECTIVE: {
+        id: 'COLLECTIVE',
+        name: 'Scrin Collective',
+        description: 'Advanced alien technology with teleportation and energy-based weapons',
+        symbol: '◈',
+
+        // Visual identity
+        colorScheme: {
+            primary: { r: 150, g: 50, b: 200 },      // Purple
+            secondary: { r: 100, g: 200, b: 150 },   // Alien green
+            accent: { r: 200, g: 150, b: 255 }
+        },
+
+        // Faction bonuses
+        bonuses: {
+            buildingHealth: 0,      // No building bonus
+            armor: 0,               // No armor bonus
+            speed: 0,               // No speed bonus
+            damage: 0,              // No damage bonus
+            resourceEfficiency: 0.10  // +10% resource income
+        },
+
+        // Starting unlocks
+        startingBuildings: ['CONSTRUCTION_YARD', 'POWER_PLANT', 'BARRACKS', 'WAR_FACTORY', 'REFINERY'],
+        startingUnits: ['HARVESTER', 'SHOCK_TROOPER', 'ENGINEER'],
+
+        // Available units
+        units: {
+            // Shared units
+            HARVESTER: {
+                ...RTS_UNITS.HARVESTER,
+                name: 'Ion Harvester',
+                harvestRate: 165  // More efficient
+            },
+            ENGINEER: {
+                ...RTS_UNITS.ENGINEER,
+                name: 'Assimilator'
+            },
+
+            // Collective infantry
+            SHOCK_TROOPER: {
+                type: RTS_UNIT_TYPES.INFANTRY,
+                name: 'Shock Trooper',
+                cost: 200,
+                buildTime: 4,
+                health: 90,
+                armor: 0.1,
+                speed: 1.4,
+                sightRange: 6,
+                attackRange: 4,
+                damage: 20,
+                fireRate: 35,
+                energyWeapon: true,
+                canGarrison: true,
+                tier: 1,
+                prerequisites: ['BARRACKS']
+            },
+            DISINTEGRATOR: {
+                type: RTS_UNIT_TYPES.INFANTRY,
+                name: 'Disintegrator',
+                cost: 700,
+                buildTime: 10,
+                health: 150,
+                armor: 0.2,
+                speed: 1.3,
+                sightRange: 7,
+                attackRange: 6,
+                damage: 100,
+                fireRate: 90,
+                energyWeapon: true,
+                instantKillInfantry: true,
+                tier: 2,
+                prerequisites: ['BARRACKS', 'ARMORY']
+            },
+
+            // Collective vehicles
+            SEEKER: {
+                type: RTS_UNIT_TYPES.VEHICLE,
+                name: 'Seeker',
+                cost: 500,
+                buildTime: 7,
+                health: 200,
+                armor: 0.2,
+                speed: 3.0,
+                sightRange: 9,
+                attackRange: 5,
+                damage: 30,
+                fireRate: 25,
+                hover: true,
+                tier: 1,
+                prerequisites: ['WAR_FACTORY'],
+                abilities: ['TELEPORT']
+            },
+            DEVOURER_TANK: {
+                type: RTS_UNIT_TYPES.VEHICLE,
+                name: 'Devourer Tank',
+                cost: 1000,
+                buildTime: 14,
+                health: 450,
+                armor: 0.35,
+                speed: 1.8,
+                sightRange: 7,
+                attackRange: 6,
+                damage: 90,
+                fireRate: 70,
+                energyWeapon: true,
+                hover: true,
+                tier: 2,
+                prerequisites: ['WAR_FACTORY', 'ARMORY'],
+                abilities: ['TELEPORT']
+            },
+            TRIPOD: {
+                type: RTS_UNIT_TYPES.VEHICLE,
+                name: 'Tripod',
+                cost: 2200,
+                buildTime: 22,
+                health: 800,
+                armor: 0.5,
+                speed: 1.5,
+                sightRange: 8,
+                attackRange: 7,
+                damage: 120,
+                fireRate: 60,
+                energyWeapon: true,
+                forceField: true,  // Immune to projectiles temporarily
+                tier: 3,
+                prerequisites: ['WAR_FACTORY', 'TECH_CENTER'],
+                abilities: ['TELEPORT']
+            },
+
+            // Collective aircraft
+            STORMRIDER: {
+                type: RTS_UNIT_TYPES.AIRCRAFT,
+                name: 'Stormrider',
+                cost: 1300,
+                buildTime: 16,
+                health: 250,
+                armor: 0.15,
+                speed: 4.2,
+                sightRange: 9,
+                attackRange: 7,
+                damage: 110,
+                fireRate: 80,
+                energyWeapon: true,
+                tier: 2,
+                prerequisites: ['AIRFIELD']
+            }
+        },
+
+        // Available buildings
+        buildings: {
+            CONSTRUCTION_YARD: {
+                ...RTS_BUILDINGS.CONSTRUCTION_YARD,
+                name: 'Threshold'
+            },
+            POWER_PLANT: {
+                ...RTS_BUILDINGS.POWER_PLANT,
+                name: 'Reactor',
+                power: 120  // Better power generation
+            },
+            REFINERY: {
+                ...RTS_BUILDINGS.REFINERY,
+                name: 'Extractor'
+            },
+            TIBERIUM_SILO: {
+                ...RTS_BUILDINGS.TIBERIUM_SILO,
+                name: 'Warp Sphere',
+                storage: 2500  // More storage
+            },
+            BARRACKS: {
+                ...RTS_BUILDINGS.BARRACKS,
+                name: 'Portal'
+            },
+            WAR_FACTORY: {
+                ...RTS_BUILDINGS.WAR_FACTORY,
+                name: 'Warp Sphere'
+            },
+            AIRFIELD: {
+                ...RTS_BUILDINGS.AIRFIELD,
+                name: 'Gravity Stabilizer'
+            },
+            ARMORY: {
+                ...RTS_BUILDINGS.ARMORY,
+                name: 'Technology Assembler'
+            },
+            TECH_CENTER: {
+                ...RTS_BUILDINGS.TECH_CENTER,
+                name: 'Nerve Center'
+            },
+            RADAR: {
+                ...RTS_BUILDINGS.RADAR,
+                name: 'Signal Transmitter'
+            },
+            GUARD_TOWER: {
+                ...RTS_BUILDINGS.GUARD_TOWER,
+                name: 'Photon Cannon',
+                damage: 30,
+                fireRate: 25,
+                energyWeapon: true
+            },
+            SAM_SITE: RTS_BUILDINGS.SAM_SITE,
+            WALL: {
+                ...RTS_BUILDINGS.WALL,
+                name: 'Force Wall',
+                health: 250,
+                armor: 0.6
+            }
+        }
+    }
+};
+
+// ===========================================
 // EXPORT FOR GLOBAL ACCESS
 // ===========================================
 if (typeof window !== 'undefined') {
@@ -739,4 +1262,5 @@ if (typeof window !== 'undefined') {
     window.RTS_PERFORMANCE = RTS_PERFORMANCE;
     window.RTS_CONTROLS = RTS_CONTROLS;
     window.RTS_MAP_GEN = RTS_MAP_GEN;
+    window.RTS_FACTIONS = RTS_FACTIONS;
 }

@@ -30,8 +30,17 @@ class Player {
         this.isHuman = config.isHuman !== false;
         this.team = config.team !== undefined ? config.team : this.id; // Default: each player is own team
 
+        // Faction assignment
+        this.faction = config.faction || 'ALLIANCE';
+        this.factionData = RTS_FACTIONS?.[this.faction] || RTS_FACTIONS?.ALLIANCE;
+
         // Color (for unit/building tinting)
-        this.color = config.color || this.getDefaultColor(this.id);
+        // Use faction color if available, otherwise default or config
+        if (!config.color && this.factionData?.colorScheme) {
+            this.color = this.factionData.colorScheme.primary;
+        } else {
+            this.color = config.color || this.getDefaultColor(this.id);
+        }
         this.p5Color = null; // Cached p5.js color object
 
         // AI configuration
@@ -57,8 +66,9 @@ class Player {
         // Note: Building unlocks are now handled dynamically by BuildingManager.meetsRequirements()
         // which checks if prerequisite buildings have been constructed.
         // This set tracks buildings that become available as prerequisites are met.
-        this.unlockedBuildings = new Set(['construction_yard', 'power_plant']);
-        this.unlockedUnits = new Set(['harvester']);
+        // Initialize with faction-specific starting unlocks
+        this.unlockedBuildings = new Set(this.factionData?.startingBuildings || ['CONSTRUCTION_YARD', 'POWER_PLANT']);
+        this.unlockedUnits = new Set(this.factionData?.startingUnits || ['HARVESTER']);
 
         // Game state
         this.isDefeated = false;
@@ -94,7 +104,16 @@ class Player {
         this.exploredCells = new Set(); // "r,c" strings
         this.visibleCells = new Set();  // Currently visible
 
-        console.log(`Player: Created ${this.isHuman ? 'human' : 'AI'} player "${this.name}" (ID: ${this.id})`);
+        console.log(`Player: Created ${this.isHuman ? 'human' : 'AI'} player "${this.name}" (ID: ${this.id}, Faction: ${this.faction})`);
+    }
+
+    /**
+     * Get faction bonus for a specific bonus type
+     * @param {string} bonusType - Type of bonus (buildingHealth, armor, speed, damage, resourceEfficiency)
+     * @returns {number} Bonus multiplier (0 = no bonus, 0.10 = +10%, etc.)
+     */
+    getFactionBonus(bonusType) {
+        return this.factionData?.bonuses?.[bonusType] || 0;
     }
 
     /**

@@ -357,9 +357,17 @@ class BuildingManager {
             return false;
         }
 
+        // Get faction-specific building config
+        const buildingConfig = this.getBuildingConfig(buildingType, player);
+        if (!buildingConfig) {
+            console.error(`Building type "${buildingType}" not available for faction ${player?.faction || 'UNKNOWN'}`);
+            return false;
+        }
+
         // Check if player can afford it
         const info = this.buildingInfoCache[buildingType];
-        if (!info || player.resources.tiberium < info.cost) {
+        const cost = buildingConfig.cost !== undefined ? buildingConfig.cost : (info?.cost || 0);
+        if (player.resources.tiberium < cost) {
             return false;
         }
 
@@ -372,6 +380,9 @@ class BuildingManager {
         // Create building
         const building = new BuildingClass(gridX, gridY, player);
         const grid = this.game.grid;
+
+        // Apply faction bonuses to building
+        this.applyFactionBonuses(building, player);
 
         // Check if placement is valid using building's own validation
         if (!building.canPlaceAt(grid, gridX, gridY)) {
@@ -387,7 +398,7 @@ class BuildingManager {
         }
 
         // Deduct resources
-        player.spendTiberium(info.cost);
+        player.spendTiberium(cost);
 
         // Set position
         building.cellSize = grid.cellSize;
@@ -416,13 +427,58 @@ class BuildingManager {
         if (this.game.eventManager) {
             this.game.eventManager.emit('building_placed', {
                 building: building,
-                player: player
+                player: player,
+                faction: player?.faction
             });
         }
 
         this.updatePowerGrid();
 
         return true;
+    }
+
+    /**
+     * Get building configuration (faction-aware)
+     * @param {string} buildingType - Building type ID
+     * @param {Player} owner - Owner player (for faction lookup)
+     * @returns {object|null}
+     */
+    getBuildingConfig(buildingType, owner) {
+        const buildingTypeUpper = buildingType.toUpperCase();
+
+        // First, check faction-specific buildings if owner has factionData
+        if (owner?.factionData?.buildings?.[buildingTypeUpper]) {
+            return owner.factionData.buildings[buildingTypeUpper];
+        }
+
+        // Fall back to generic RTS_BUILDINGS
+        if (typeof RTS_BUILDINGS !== 'undefined' && RTS_BUILDINGS[buildingTypeUpper]) {
+            return RTS_BUILDINGS[buildingTypeUpper];
+        }
+
+        return null;
+    }
+
+    /**
+     * Apply faction bonuses to building
+     * @param {Building} building - Building instance
+     * @param {Player} owner - Owner player
+     */
+    applyFactionBonuses(building, owner) {
+        if (!owner || !owner.factionData) {
+            return;
+        }
+
+        // Apply building health bonus (Alliance gets +15%)
+        if (owner.getFactionBonus('buildingHealth')) {
+            building.maxHealth *= (1 + owner.getFactionBonus('buildingHealth'));
+            building.health = building.maxHealth;
+        }
+
+        // Apply power generation bonus (Collective gets better power)
+        if (building.powerOutput && owner.getFactionBonus('resourceEfficiency')) {
+            building.powerOutput *= (1 + owner.getFactionBonus('resourceEfficiency'));
+        }
     }
 
     /**
