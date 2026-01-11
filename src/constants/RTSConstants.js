@@ -719,6 +719,34 @@ const RTS_MAP_GEN = {
     MIN_BUILDABLE_PERCENT: 0.6,         // Minimum 60% of map must be buildable
 };
 
+// Map size presets
+const MAP_SIZES = {
+    SMALL: {
+        rows: 64,
+        cols: 64,
+        name: 'Small (64x64)',
+        noiseScale: 0.10,               // Higher noise = smaller features
+        riverNoiseScale: 0.04,
+        minBaseClearance: 6             // Smaller clearance for small maps
+    },
+    MEDIUM: {
+        rows: 96,
+        cols: 96,
+        name: 'Medium (96x96)',
+        noiseScale: 0.08,               // Default noise scale
+        riverNoiseScale: 0.03,
+        minBaseClearance: 8             // Standard clearance
+    },
+    LARGE: {
+        rows: 128,
+        cols: 128,
+        name: 'Large (128x128)',
+        noiseScale: 0.06,               // Lower noise = larger features
+        riverNoiseScale: 0.025,
+        minBaseClearance: 10            // Larger clearance for large maps
+    }
+};
+
 // ===========================================
 // FACTION SYSTEM
 // ===========================================
@@ -1262,5 +1290,6 @@ if (typeof window !== 'undefined') {
     window.RTS_PERFORMANCE = RTS_PERFORMANCE;
     window.RTS_CONTROLS = RTS_CONTROLS;
     window.RTS_MAP_GEN = RTS_MAP_GEN;
+    window.MAP_SIZES = MAP_SIZES;
     window.RTS_FACTIONS = RTS_FACTIONS;
 }

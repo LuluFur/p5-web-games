@@ -51,19 +51,25 @@ class MapGenerator {
         // Grid reference
         this.grid = config.grid || null;
 
-        // Map dimensions (in cells)
-        this.rows = config.rows || 30;
-        this.cols = config.cols || 40;
+        // Map size preset handling
+        let sizePreset = null;
+        if (config.sizePreset && typeof MAP_SIZES !== 'undefined') {
+            sizePreset = MAP_SIZES[config.sizePreset] || MAP_SIZES.MEDIUM;
+        }
+
+        // Map dimensions (in cells) - use preset if provided
+        this.rows = config.rows || (sizePreset ? sizePreset.rows : 30);
+        this.cols = config.cols || (sizePreset ? sizePreset.cols : 40);
         this.cellSize = config.cellSize || 32;
 
         // Layout configuration
         this.layout = config.layout || MAP_LAYOUTS.SYMMETRIC_2P;
         this.playerCount = config.playerCount || 2;
 
-        // Generation parameters
+        // Generation parameters - use preset values if provided
         this.tiberiumDensity = config.tiberiumDensity || 0.15;
         this.terrainDensity = config.terrainDensity || 0.08;
-        this.minBaseClearance = config.minBaseClearance || 8;  // Cells around bases
+        this.minBaseClearance = config.minBaseClearance || (sizePreset ? sizePreset.minBaseClearance : 8);
 
         // Random seed for reproducible generation
         this.seed = config.seed || Math.floor(Math.random() * 100000);
@@ -76,10 +82,12 @@ class MapGenerator {
         this.pathClearances = [];       // Guaranteed clear paths
         this.surfaceMap = [];           // 2D array of surface types
         this.riverPaths = [];           // River flow paths
+        this.chokePoints = [];          // Narrow tactical corridors
+        this.expansionZones = [];       // Strategic expansion locations
 
-        // Perlin noise settings
-        this.noiseScale = config.noiseScale || 0.08;
-        this.riverNoiseScale = config.riverNoiseScale || 0.03;
+        // Perlin noise settings - use preset values if provided
+        this.noiseScale = config.noiseScale || (sizePreset ? sizePreset.noiseScale : 0.08);
+        this.riverNoiseScale = config.riverNoiseScale || (sizePreset ? sizePreset.riverNoiseScale : 0.03);
         this.mudThreshold = 0.15;       // How common mud is (lower = rarer)
         this.grassThreshold = 0.35;     // Transition to grass
         this.waterThreshold = 0.7;      // River threshold
@@ -1087,6 +1095,7 @@ class MapGenerator {
             this._tiberiumDensity = 0.15;
             this._terrainDensity = 0.08;
             this._seed = null;
+            this._sizePreset = null;
             return this;
         }
 
@@ -1101,6 +1110,30 @@ class MapGenerator {
         withDimensions(rows, cols) {
             this._rows = rows;
             this._cols = cols;
+            return this;
+        }
+
+        withSize(rows, cols) {
+            return this.withDimensions(rows, cols);
+        }
+
+        withSizePreset(preset) {
+            this._sizePreset = preset;
+            return this;
+        }
+
+        small() {
+            this._sizePreset = 'SMALL';
+            return this;
+        }
+
+        medium() {
+            this._sizePreset = 'MEDIUM';
+            return this;
+        }
+
+        large() {
+            this._sizePreset = 'LARGE';
             return this;
         }
 
@@ -1171,7 +1204,8 @@ class MapGenerator {
                 playerCount: this._playerCount,
                 tiberiumDensity: this._tiberiumDensity,
                 terrainDensity: this._terrainDensity,
-                seed: this._seed
+                seed: this._seed,
+                sizePreset: this._sizePreset
             });
         }
 
