@@ -114,6 +114,26 @@ class Unit {
         // Human units spawn with AGGRESSIVE for immediate control
         this.stance = (owner && !owner.isHuman) ? RTS_UNIT_STANCES.HOLD_POSITION : RTS_UNIT_STANCES.AGGRESSIVE;
 
+        // Faction abilities (from config)
+        this.abilities = config.abilities || [];
+        this.abilityStates = {
+            stealth: {
+                active: false,
+                idleTimeRequired: 180,  // 3 seconds idle before stealth activates
+                lastActivityFrame: frameCount || 0
+            },
+            teleport: {
+                cooldown: 0,
+                maxCooldown: 300,  // 5 seconds (300 frames at 60 FPS)
+                range: 5 * (RTS_GRID?.CELL_SIZE || 32)  // 5 cells
+            },
+            shieldRegen: {
+                lastDamageTime: 0,
+                regenDelay: 180,  // 3 seconds after damage
+                regenRate: 0.5    // HP per frame (30 HP/sec at 60 FPS)
+            }
+        };
+
         // Listen for enemy reveals - retarget if in sight
         if (typeof EVENTS !== 'undefined') {
             EVENTS.on('ENEMY_REVEALED', (data) => {
@@ -184,6 +204,9 @@ class Unit {
         } else {
             this.showHealthBar = false;
         }
+
+        // Update faction abilities
+        this.updateAbilities(deltaTime);
 
         // Process current command
         this.processCommands(deltaTime);
@@ -353,6 +376,87 @@ class Unit {
         } finally {
             this._inStanceBehavior = false;
         }
+    }
+
+    // ===========================================
+    // FACTION ABILITIES
+    // ===========================================
+
+    /**
+     * Update all active faction abilities
+     * @param {number} deltaTime - Frame delta time
+     */
+    updateAbilities(deltaTime) {
+        if (!this.abilities || this.abilities.length === 0) return;
+
+        // Update each ability
+        if (this.abilities.includes('STEALTH')) {
+            this.updateStealthAbility(deltaTime);
+        }
+        if (this.abilities.includes('TELEPORT')) {
+            this.updateTeleportAbility(deltaTime);
+        }
+        if (this.abilities.includes('SHIELD_REGEN')) {
+            this.updateShieldRegenAbility(deltaTime);
+        }
+    }
+
+    /**
+     * STEALTH ability (Syndicate)
+     * Unit becomes invisible when idle and not recently attacked
+     */
+    updateStealthAbility(deltaTime) {
+        const idleFrames = frameCount - this.abilityStates.stealth.lastActivityFrame;
+        const isIdle = this.state === RTS_UNIT_STATES.IDLE;
+        const notRecentlyDamaged = (millis() - this.lastDamageTime) > 3000; // 3 seconds
+
+        // Activate stealth if idle long enough and not recently damaged
+        this.abilityStates.stealth.active = isIdle && idleFrames > this.abilityStates.stealth.idleTimeRequired && notRecentlyDamaged;
+
+        // Reset idle timer if not idle or taking actions
+        if (!isIdle || this.attackCooldown > 0) {
+            this.abilityStates.stealth.lastActivityFrame = frameCount;
+            this.abilityStates.stealth.active = false;
+        }
+    }
+
+    /**
+     * TELEPORT ability (Collective)
+     * Reduces cooldown for teleportation
+     */
+    updateTeleportAbility(deltaTime) {
+        if (this.abilityStates.teleport.cooldown > 0) {
+            this.abilityStates.teleport.cooldown -= deltaTime * 60; // Convert to frames
+        }
+    }
+
+    /**
+     * SHIELD_REGEN ability (Alliance)
+     * Regenerates health when not damaged recently
+     */
+    updateShieldRegenAbility(deltaTime) {
+        const timeSinceDamage = millis() - this.lastDamageTime;
+
+        // Only regen if not damaged recently and not at full health
+        if (timeSinceDamage > this.abilityStates.shieldRegen.regenDelay * 16.67 && this.health < this.maxHealth) {
+            this.health = Math.min(this.maxHealth, this.health + this.abilityStates.shieldRegen.regenRate);
+        }
+    }
+
+    /**
+     * Check if unit is currently stealthed
+     * @returns {boolean}
+     */
+    isStealthed() {
+        return this.abilities.includes('STEALTH') && this.abilityStates.stealth.active;
+    }
+
+    /**
+     * Can unit teleport right now?
+     * @returns {boolean}
+     */
+    canTeleport() {
+        return this.abilities.includes('TELEPORT') && this.abilityStates.teleport.cooldown <= 0;
     }
 
     // ===========================================
@@ -888,20 +992,24 @@ class Unit {
         push();
         translate(this.x, this.y);
 
-        // Shadow (fade with unit during death)
+        // Shadow (fade with unit during death or when stealthed)
         if (window.ShapeRenderer) {
+            let shadowAlpha = 40;
             if (this.state === RTS_UNIT_STATES.DYING && this.fadeOutAlpha < 255) {
-                // Shadow also fades during fade out phase
-                const shadowAlpha = map(this.fadeOutAlpha, 0, 255, 0, 40);
-                window.ShapeRenderer.drawShadow(0, this.radius * 0.8, this.radius * 1.5, this.radius * 0.5, shadowAlpha);
-            } else {
-                window.ShapeRenderer.drawShadow(0, this.radius * 0.8, this.radius * 1.5, this.radius * 0.5, 40);
+                // Shadow fades during death
+                shadowAlpha = map(this.fadeOutAlpha, 0, 255, 0, 40);
+            } else if (this.isStealthed()) {
+                // Reduce shadow for stealthed units
+                shadowAlpha = 10;
             }
+            window.ShapeRenderer.drawShadow(0, this.radius * 0.8, this.radius * 1.5, this.radius * 0.5, shadowAlpha);
         }
 
-        // Apply fade out transparency
+        // Apply fade out transparency or stealth transparency
         if (this.state === RTS_UNIT_STATES.DYING) {
             tint(255, this.fadeOutAlpha);
+        } else if (this.isStealthed()) {
+            tint(255, 80); // Semi-transparent when stealthed
         }
 
         // Rotate to facing direction
@@ -950,9 +1058,19 @@ class Unit {
     }
 
     /**
-     * Draw UI overlays (selection, health bar, rank)
+     * Draw UI overlays (selection, health bar, rank, faction symbol)
      */
     drawOverlays() {
+        // Faction symbol (above unit)
+        if (this.owner?.factionData?.symbol) {
+            push();
+            fill(255, 255, 255, 200);
+            textAlign(CENTER, CENTER);
+            textSize(10);
+            text(this.owner.factionData.symbol, this.x, this.y - this.radius - 15);
+            pop();
+        }
+
         // Selection indicator
         if (this.isSelected) {
             if (window.ShapeRenderer) {
