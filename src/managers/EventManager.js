@@ -45,7 +45,26 @@ const EVENT_NAMES = {
 
     // Game events
     GAME_OVER: 'game_over',
-    STATE_CHANGE: 'state_change'
+    STATE_CHANGE: 'state_change',
+
+    // RTS-specific events
+
+    // Unit events (RTS)
+    UNIT_CREATED: 'unit_created',
+    UNIT_DESTROYED: 'unit_destroyed',
+
+    // Building events (RTS)
+    BUILDING_PLACED: 'building_placed',
+    BUILDING_COMPLETE: 'building_complete',
+    BUILDING_DESTROYED: 'building_destroyed',
+
+    // Visibility events (RTS)
+    ENEMY_REVEALED: 'enemy_revealed',
+    ENEMY_BASE_DISCOVERED: 'enemy_base_discovered',
+
+    // AI patrol events (RTS)
+    AI_PATROL_STARTED: 'ai_patrol_started',
+    AI_PATROL_WAYPOINT_COMPLETE: 'ai_patrol_waypoint_complete'
 };
 
 class EventManager {

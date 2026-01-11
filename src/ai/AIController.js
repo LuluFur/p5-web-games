@@ -62,7 +62,8 @@ const AI_STATE = {
     MASSING: 'MASSING',         // Building army
     ATTACKING: 'ATTACKING',     // Attacking enemy
     DEFENDING: 'DEFENDING',     // Under attack, defending
-    EXPLORING: 'EXPLORING'      // No enemies found, explore map
+    EXPLORING: 'EXPLORING',     // No enemies found, explore map
+    PATROL: 'PATROL'            // Patrol with mixed army to unexplored areas
 };
 
 class AIController {
@@ -101,6 +102,17 @@ class AIController {
         this.currentExplorationIndex = 0;
         this.explorationTimer = 0;
         this.generateExplorationWaypoints();
+
+        // Patrol configuration (mixed army exploration)
+        this.patrolTimer = 0;
+        this.patrolCooldown = 120;          // 2 minutes between patrols
+        this.patrolWaitDuration = 30;       // 30 seconds at each waypoint
+        this.patrolWaitTimer = 0;
+        this.currentPatrolWaypoint = null;
+        this.patrolUnits = [];              // Track units on current patrol
+        this.patrolArmySize = 8;            // Target patrol army size
+        this.patrolWaypoints = [];
+        this.generatePatrolWaypoints();
 
         // Initialize build order based on personality
         this.initializeBuildOrder();
@@ -141,7 +153,6 @@ class AIController {
                     { type: 'unit', name: 'infantry', count: 5 },
                     { type: 'building', name: 'refinery' },
                     { type: 'unit', name: 'infantry', count: 5 },
-                    { type: 'attack' },
                     { type: 'building', name: 'barracks' },
                     { type: 'unit', name: 'infantry', count: 10 }
                 ];
@@ -231,7 +242,7 @@ class AIController {
 
         this.gameTime += deltaTime;
         this.buildTimer += deltaTime;
-        this.attackTimer += deltaTime;
+        // Note: attackTimer and patrolTimer are managed per-state to avoid conflicts
 
         // Update unit cache periodically
         this.updateUnitCache();
@@ -243,6 +254,9 @@ class AIController {
         if (Math.floor(this.gameTime) % 5 === 0 && this.gameTime % deltaTime < deltaTime * 1.5) {
             this.evaluateAndAdjustStrategy();
         }
+
+        // Track previous state for debugging
+        const prevState = this.state;
 
         // Update based on current state
         switch (this.state) {
@@ -266,10 +280,21 @@ class AIController {
             case AI_STATE.EXPLORING:
                 this.updateExploringPhase(deltaTime);
                 break;
+
+            case AI_STATE.PATROL:
+                this.updatePatrolPhase(deltaTime);
+                break;
         }
 
-        // Always check for threats
-        this.checkForThreats();
+        // Log state transitions for debugging
+        if (this.state !== prevState) {
+            console.log(`[AI] ${this.personality} STATE: ${prevState} → ${this.state}`);
+        }
+
+        // Always check for threats (but don't interrupt PATROL or ATTACKING unless base is under attack)
+        if (this.state !== AI_STATE.PATROL && this.state !== AI_STATE.ATTACKING) {
+            this.checkForThreats();
+        }
 
         // Manage idle harvesters
         this.manageHarvesters();
@@ -300,6 +325,7 @@ class AIController {
 
         // Transition to massing if build queue exhausted
         if (this.currentBuildIndex >= this.buildQueue.length) {
+            console.log(`[AI] ${this.personality} completed build queue (${this.currentBuildIndex}/${this.buildQueue.length}), transitioning to MASSING`);
             this.state = AI_STATE.MASSING;
         }
     }
@@ -315,19 +341,37 @@ class AIController {
         switch (order.type) {
             case 'building':
                 if (this.tryBuildBuilding(order.name)) {
+                    console.log(`[AI] ${this.personality} placed building: ${order.name}`);
                     this.currentBuildIndex++;
+                } else {
+                    // Check if requirements will never be met (skip the order)
+                    const buildingManager = Game.instance?.buildingManager;
+                    if (buildingManager && !buildingManager.meetsRequirements(order.name, this.player)) {
+                        // Skip this order - requirements not met yet
+                    } else {
+                        // Just waiting for resources/space
+                    }
                 }
                 break;
 
             case 'unit':
-                if (this.tryProduceUnits(order.name, order.count || 1)) {
-                    this.currentBuildIndex++;
-                }
-                break;
+                // Check if producer building exists before trying
+                const producerType = this.getProducerBuilding(order.name);
+                const producer = this.findProducerBuilding(producerType);
 
-            case 'attack':
-                this.state = AI_STATE.ATTACKING;
-                this.currentBuildIndex++;
+                if (!producer) {
+                    // Skip this order - no producer building yet
+                    console.log(`[AI] ${this.personality} skipping unit order: ${order.name} (no ${producerType})`);
+                    this.currentBuildIndex++;
+                    break;
+                }
+
+                if (this.tryProduceUnits(order.name, order.count || 1)) {
+                    console.log(`[AI] ${this.personality} queueing ${order.count || 1} unit(s): ${order.name}`);
+                    this.currentBuildIndex++;
+                } else {
+                    // Just waiting for resources
+                }
                 break;
         }
     }
@@ -335,6 +379,13 @@ class AIController {
     /**
      * Evaluate player progression and adjust AI strategy
      * Uses progression values to make tactical decisions
+     *
+     * IMPORTANT: This method should NOT override active states like:
+     * - PATROL (actively searching for enemies)
+     * - ATTACKING (actively engaged in combat)
+     * - DEFENDING (responding to base attack)
+     *
+     * It should only influence "passive" states: BUILDING, EXPANDING, MASSING
      */
     evaluateAndAdjustStrategy() {
         if (!this.player || !this.player.progression) return;
@@ -342,9 +393,12 @@ class AIController {
         const prog = this.player.progression;
         const buildingManager = Game.instance?.buildingManager;
 
-        // Strategy 1: Defense is weak - focus on defensive buildings
+        // CRITICAL: Do NOT override active states - let them complete naturally
+        const activeStates = [AI_STATE.PATROL, AI_STATE.ATTACKING, AI_STATE.DEFENDING];
+        const inActiveState = activeStates.includes(this.state);
+
+        // Strategy 1: Defense is weak - add defensive buildings to queue (doesn't change state)
         if (prog.base_defence_progress < 30) {
-            // Only try to add tower if we have prerequisites
             if (buildingManager && buildingManager.meetsRequirements('guard_tower', this.player)) {
                 const hasTower = this.buildQueue.some(o => o.type === 'building' && o.name === 'guard_tower');
                 if (!hasTower && this.state !== AI_STATE.DEFENDING && !this.isUnderAttack()) {
@@ -355,12 +409,12 @@ class AIController {
             }
         }
 
-        // Strategy 2: Base expansion is weak - focus on economy
-        if (prog.base_expansion_progress < 25) {
+        // Strategy 2: Base expansion is weak - focus on economy (only if not in active state)
+        if (!inActiveState && prog.base_expansion_progress < 25) {
             this.state = AI_STATE.EXPANDING;
         }
 
-        // Strategy 3: Technology is weak - focus on tech buildings
+        // Strategy 3: Technology is weak - add tech buildings to queue (doesn't change state)
         if (prog.base_technology_progress < 40 && prog.base_expansion_progress > 40) {
             if (buildingManager && buildingManager.meetsRequirements('tech_center', this.player)) {
                 if (!this.buildQueue.some(o => o.type === 'building' && o.name === 'tech_center')) {
@@ -369,32 +423,37 @@ class AIController {
             }
         }
 
-        // Strategy 4: Not exploring - queue scouts (represented by idle units)
-        // (handled by general unit production)
+        // Strategy 4: Not exploring - handled by PATROL state naturally
 
-        // Strategy 5: Weak harvesting - focus on harvesters
+        // Strategy 5: Weak harvesting - add harvesters to queue (doesn't change state)
+        // Only queue harvesters if we have a war factory to produce them
         if (prog.map_tiberium_fields_contained_progress < 40) {
-            if (!this.buildQueue.some(o => o.type === 'unit' && o.name === 'harvester')) {
+            const hasWarFactory = this.findProducerBuilding('war_factory') !== null;
+            if (hasWarFactory && !this.buildQueue.some(o => o.type === 'unit' && o.name === 'harvester')) {
                 this.buildQueue.push({ type: 'unit', name: 'harvester', count: 2 });
+            } else if (!hasWarFactory && !this.buildQueue.some(o => o.type === 'building' && o.name === 'war_factory')) {
+                // Queue war factory first if we don't have one
+                if (buildingManager && buildingManager.meetsRequirements('war_factory', this.player)) {
+                    this.buildQueue.push({ type: 'building', name: 'war_factory' });
+                }
             }
         }
 
-        // Strategy 6: Strong overall - time to mass units
-        const overallStrength = (prog.base_expansion_progress + prog.base_technology_progress +
-                                prog.map_tiberium_fields_contained_progress) / 3;
-        if (overallStrength > 60 && prog.unit_army_progress < 60) {
-            this.state = AI_STATE.MASSING;
+        // Strategy 6 & 7: Only suggest state changes if NOT in an active state
+        // Active states (PATROL, ATTACKING, DEFENDING) have their own transition logic
+        if (!inActiveState) {
+            // Strong overall - time to mass units
+            const overallStrength = (prog.base_expansion_progress + prog.base_technology_progress +
+                                    prog.map_tiberium_fields_contained_progress) / 3;
+            if (overallStrength > 60 && prog.unit_army_progress < 60) {
+                this.state = AI_STATE.MASSING;
+            }
         }
 
-        // Strategy 7: Army ready - attack!
-        // Only attack if we have a decent army (at least 6 combat units = 60% progress)
-        if (prog.unit_army_progress >= 60) {
-            this.state = AI_STATE.ATTACKING;
-        }
-        // Also attack if we've killed enemy units successfully
-        else if (prog.enemies_defeated_progress > 50 && prog.unit_army_progress >= 40) {
-            this.state = AI_STATE.ATTACKING;
-        }
+        // NOTE: Transitions to ATTACKING are now handled by:
+        // - updateMassingPhase: when enemies become visible
+        // - updatePatrolPhase: when enemies are discovered during patrol
+        // This ensures proper state machine flow instead of random interruptions
     }
 
     /**
@@ -611,10 +670,17 @@ class AIController {
 
     /**
      * Update during massing phase
+     * Decision tree:
+     * 1. If enemies visible → ATTACKING
+     * 2. If army >= patrolArmySize → PATROL (to search for enemies)
+     * 3. Keep building units until patrol size reached
      */
     updateMassingPhase(deltaTime) {
         // Keep units on hold position while massing
         this.setUnitStance(RTS_UNIT_STANCES.HOLD_POSITION);
+
+        // Increment patrol timer while massing (so patrol cooldown can expire)
+        this.patrolTimer += deltaTime;
 
         const armySize = this.getArmySize();
 
@@ -623,25 +689,51 @@ class AIController {
             this.buildTimer = 0;
 
             if (armySize < this.difficultySettings.unitCap) {
-                // Build more units
+                // Build more units - aim for patrol army size
                 const unitType = this.personality === AI_PERSONALITY.RUSHER ? 'infantry' : 'vehicle';
                 this.tryProduceUnits(unitType, 1);
             }
         }
 
-        // Switch to exploring if we have units and no enemies found yet
-        if (armySize >= 3 && this.attackTimer >= this.difficultySettings.attackDelay / 2) {
-            if (this.findAttackTarget() === null) {
-                // No enemies found - start exploring to find them
+        // Priority 1: If we can see enemies AND have enough army, attack them
+        // Minimum 3 units required to attack (same threshold as ATTACKING state uses to return to MASSING)
+        const visibleTarget = this.findAttackTarget();
+        if (visibleTarget && armySize >= 3) {
+            console.log(`[AI] ${this.personality} found visible enemy in MASSING, transitioning to ATTACKING (army=${armySize})`);
+            this.attackTimer = 0;  // Reset attack timer
+            this.state = AI_STATE.ATTACKING;
+            return;
+        }
+
+        // Priority 2: If army is large enough, start patrolling to find enemies
+        if (armySize >= this.patrolArmySize) {
+            console.log(`[AI] ${this.personality} army ready (${armySize}/${this.patrolArmySize}), transitioning to PATROL`);
+            this.patrolTimer = 0;
+            this.currentPatrolWaypoint = null;
+            this.state = AI_STATE.PATROL;
+
+            // Emit patrol start event
+            if (typeof EVENTS !== 'undefined') {
+                EVENTS.emit('AI_PATROL_STARTED', {
+                    aiPlayer: this.player,
+                    armySize: armySize
+                });
+            }
+            return;
+        }
+
+        // Priority 3: If we have some units but not enough for patrol, explore with what we have
+        if (armySize >= 3) {
+            // Only explore after some delay to allow initial building
+            this.attackTimer += deltaTime;
+            if (this.attackTimer >= 60) {  // Wait 60 seconds before exploring with small army
+                console.log(`[AI] ${this.personality} small army exploring (${armySize}/${this.patrolArmySize})`);
                 this.state = AI_STATE.EXPLORING;
                 return;
             }
         }
 
-        // Attack when ready
-        if (this.attackTimer >= this.difficultySettings.attackDelay) {
-            this.state = AI_STATE.ATTACKING;
-        }
+        // Otherwise: keep building (stay in MASSING)
     }
 
     /**
@@ -701,6 +793,31 @@ class AIController {
         // Find attack target
         if (!this.attackTarget) {
             this.attackTarget = this.findAttackTarget();
+
+            if (this.attackTarget) {
+                console.log(`[AI] ${this.personality} found attack target: ${this.attackTarget.type}`);
+                this.attackTimer = 0; // Reset timer on successful target find
+            } else {
+                // No target found, track time without target
+                this.attackTimer += deltaTime;
+
+                // If we've been searching for too long with no target, switch to PATROL to actively search
+                if (this.attackTimer > 20) {
+                    const armySize = this.getArmySize();
+                    if (armySize >= this.patrolArmySize) {
+                        console.log(`[AI] ${this.personality} no attack target found for 20s, transitioning to PATROL to search (army=${armySize})`);
+                        this.state = AI_STATE.PATROL;
+                        this.patrolTimer = 0;
+                        this.currentPatrolWaypoint = null;
+                    } else {
+                        console.log(`[AI] ${this.personality} no attack target found for 20s, returning to MASSING (army=${armySize}, need ${this.patrolArmySize})`);
+                        this.state = AI_STATE.MASSING;
+                    }
+                    this.attackTimer = 0;
+                    this.attackTarget = null;
+                    return;
+                }
+            }
         }
 
         if (this.attackTarget) {
@@ -709,6 +826,7 @@ class AIController {
 
         // Return to massing if army depleted
         if (this.getArmySize() < 3) {
+            console.log(`[AI] ${this.personality} army depleted during ATTACKING (${this.getArmySize()} < 3), returning to MASSING`);
             this.state = AI_STATE.MASSING;
             this.attackTimer = 0;
             this.attackTarget = null;
@@ -992,6 +1110,105 @@ class AIController {
     }
 
     /**
+     * Update during patrol phase - send mixed army to unexplored areas
+     * Holds position with a cooldown, then moves to next waypoint
+     */
+    updatePatrolPhase(deltaTime) {
+        this.patrolTimer += deltaTime;
+
+        // Get patrol army first (exclude harvesters)
+        let patrolUnits;
+        if (this._unitCache && this._unitCache.army) {
+            patrolUnits = this._unitCache.army.filter(u => !u.isDead());
+        } else {
+            if (!Game.instance || !Game.instance.unitManager) return;
+            patrolUnits = Game.instance.unitManager.getUnitsByPlayer(this.player)
+                .filter(u => !u.isDead() && u.config?.type?.toUpperCase() !== 'HARVESTER');
+        }
+
+        // Return to massing if army too small (check BEFORE enemy detection to avoid cycling)
+        if (patrolUnits.length < 3) {
+            console.log(`[AI] ${this.personality} PATROL army depleted (${patrolUnits.length} < 3), returning to MASSING`);
+            this.attackTimer = 0;
+            this.state = AI_STATE.MASSING;
+            this.currentPatrolWaypoint = null;
+            return;
+        }
+
+        // Check if any enemies found - switch to attacking (army size already validated above)
+        const visibleTarget = this.findAttackTarget();
+        if (visibleTarget) {
+            console.log(`[AI] ${this.personality} found enemies during PATROL: ${visibleTarget.type}, switching to ATTACKING (army=${patrolUnits.length})`);
+            this.attackTimer = 0;
+            this.state = AI_STATE.ATTACKING;
+            this.currentPatrolWaypoint = null;
+            return;
+        }
+
+        // Set units to aggressive stance (attack on sight)
+        this.setUnitStance(RTS_UNIT_STANCES.AGGRESSIVE);
+
+        // Select next patrol waypoint if needed
+        if (!this.currentPatrolWaypoint) {
+            this.currentPatrolWaypoint = this.selectNextPatrolWaypoint();
+            this.patrolWaitTimer = 0;
+
+            if (!this.currentPatrolWaypoint) {
+                console.log(`[AI] ${this.personality} PATROL failed to select waypoint!`);
+                return;
+            }
+
+            // Send all units to waypoint using AttackMoveCommand (or MoveCommand as fallback)
+            console.log(`[AI] ${this.personality} PATROL sending ${patrolUnits.length} units to waypoint (${this.currentPatrolWaypoint.x.toFixed(0)}, ${this.currentPatrolWaypoint.y.toFixed(0)})`);
+
+            let commandsIssued = 0;
+            for (const unit of patrolUnits) {
+                let cmd;
+                if (typeof AttackMoveCommand !== 'undefined') {
+                    cmd = new AttackMoveCommand(unit, this.currentPatrolWaypoint.x, this.currentPatrolWaypoint.y);
+                } else if (typeof MoveCommand !== 'undefined') {
+                    cmd = new MoveCommand(unit, this.currentPatrolWaypoint.x, this.currentPatrolWaypoint.y);
+                }
+
+                if (cmd) {
+                    unit.issueCommand(cmd);
+                    commandsIssued++;
+                }
+            }
+            console.log(`[AI] ${this.personality} PATROL issued ${commandsIssued} movement commands`)
+        }
+
+        // Check if units have reached waypoint
+        if (this.currentPatrolWaypoint) {
+            const arrived = this.checkPatrolArrival(patrolUnits, this.currentPatrolWaypoint);
+
+            if (arrived) {
+                this.patrolWaitTimer += deltaTime;
+
+                // Wait at waypoint for cooldown duration
+                if (this.patrolWaitTimer >= this.patrolWaitDuration) {
+                    // Mark waypoint as visited
+                    this.currentPatrolWaypoint.visited = true;
+                    console.log(`[AI] ${this.personality} completed patrol at waypoint (${this.currentPatrolWaypoint.x.toFixed(0)}, ${this.currentPatrolWaypoint.y.toFixed(0)}) waited ${this.patrolWaitTimer.toFixed(1)}s`);
+
+                    // Emit patrol complete event
+                    if (typeof EVENTS !== 'undefined') {
+                        EVENTS.emit('AI_PATROL_WAYPOINT_COMPLETE', {
+                            aiPlayer: this.player,
+                            waypoint: this.currentPatrolWaypoint,
+                            unitsOnPatrol: patrolUnits.length
+                        });
+                    }
+
+                    // Move to next waypoint
+                    this.currentPatrolWaypoint = null;
+                    this.patrolWaitTimer = 0;
+                }
+            }
+        }
+    }
+
+    /**
      * Generate exploration waypoints across the map
      * Creates a grid of waypoints for units to patrol
      */
@@ -1015,6 +1232,249 @@ class AIController {
             [this.explorationWaypoints[j], this.explorationWaypoints[i]];
         }
     }
+
+    /**
+     * Generate patrol waypoints in strategic locations
+     * Uses wider spacing than exploration for more deliberate patrol routes
+     */
+    generatePatrolWaypoints() {
+        const mapWidth = 64 * 32;
+        const mapHeight = 64 * 32;
+        const spacing = 768; // 24 cells = wider spacing than exploration
+
+        this.patrolWaypoints = [];
+
+        for (let x = spacing / 2; x < mapWidth; x += spacing) {
+            for (let y = spacing / 2; y < mapHeight; y += spacing) {
+                this.patrolWaypoints.push({
+                    x,
+                    y,
+                    visited: false,
+                    priority: 0 // Will be set based on unexplored weight
+                });
+            }
+        }
+
+        // Shuffle waypoints for variety
+        for (let i = this.patrolWaypoints.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.patrolWaypoints[i], this.patrolWaypoints[j]] =
+            [this.patrolWaypoints[j], this.patrolWaypoints[i]];
+        }
+    }
+
+    /**
+     * Select next patrol waypoint prioritizing unexplored areas
+     */
+    selectNextPatrolWaypoint() {
+        if (this.patrolWaypoints.length === 0) {
+            this.generatePatrolWaypoints();
+        }
+
+        // Weight waypoints by unexplored cells nearby
+        for (const waypoint of this.patrolWaypoints) {
+            if (waypoint.visited) continue;
+
+            const cellSize = RTS_GRID?.CELL_SIZE || 32;
+            const gridX = Math.floor(waypoint.x / cellSize);
+            const gridY = Math.floor(waypoint.y / cellSize);
+
+            // Count unexplored cells in 10-cell radius
+            let unexploredCount = 0;
+            const checkRadius = 10;
+
+            for (let dx = -checkRadius; dx <= checkRadius; dx++) {
+                for (let dy = -checkRadius; dy <= checkRadius; dy++) {
+                    const checkX = gridX + dx;
+                    const checkY = gridY + dy;
+                    const cellKey = `${checkX},${checkY}`;
+
+                    if (this.player.exploredCells && !this.player.exploredCells.has(cellKey)) {
+                        unexploredCount++;
+                    }
+                }
+            }
+
+            waypoint.priority = unexploredCount;
+        }
+
+        // Sort by priority (most unexplored first), then by unvisited
+        const candidates = this.patrolWaypoints
+            .filter(w => !w.visited)
+            .sort((a, b) => b.priority - a.priority);
+
+        // If all visited, reset
+        if (candidates.length === 0) {
+            for (const waypoint of this.patrolWaypoints) {
+                waypoint.visited = false;
+            }
+            return this.patrolWaypoints[0];
+        }
+
+        return candidates[0];
+    }
+
+    /**
+     * Check if majority of patrol units have arrived at waypoint
+     */
+    checkPatrolArrival(units, waypoint) {
+        if (units.length === 0) return false;
+
+        const arrivalRadius = 100; // 3 cells
+        let arrivedCount = 0;
+
+        for (const unit of units) {
+            const dx = unit.x - waypoint.x;
+            const dy = unit.y - waypoint.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= arrivalRadius) {
+                arrivedCount++;
+            }
+        }
+
+        // At least 60% arrived
+        return arrivedCount >= units.length * 0.6;
+    }
+
+    /**
+     * Generate patrol composition based on personality and difficulty
+     * @returns {string[]} Array of unit type names
+     */
+    generatePatrolComposition() {
+        const template = this.getPatrolTemplate();
+        const composition = [];
+
+        // Randomize within min/max ranges
+        for (const [unitType, config] of Object.entries(template)) {
+            // Skip if difficulty-gated
+            if (config.difficultyGate) {
+                const meetGate = this.meetsDifficultyGate(config.difficultyGate);
+                if (!meetGate) continue;
+            }
+
+            // Random count within range
+            const count = Math.floor(Math.random() * (config.max - config.min + 1)) + config.min;
+
+            for (let i = 0; i < count; i++) {
+                composition.push(unitType);
+            }
+        }
+
+        // Ensure target size
+        const targetSize = this.patrolArmySize;
+        while (composition.length < targetSize) {
+            composition.push(this.getBaseUnitType());
+        }
+
+        // Trim if over
+        while (composition.length > targetSize) {
+            const leastImportant = this.findLeastImportantUnit(composition);
+            composition.splice(composition.indexOf(leastImportant), 1);
+        }
+
+        return composition;
+    }
+
+    /**
+     * Get patrol template based on personality
+     */
+    getPatrolTemplate() {
+        const templates = {
+            RUSHER: {
+                RIFLEMAN: { min: 4, max: 6 },
+                SCOUT_BUGGY: { min: 1, max: 3 },
+                ROCKET_SOLDIER: { min: 1, max: 2 }
+            },
+            TURTLE: {
+                RIFLEMAN: { min: 2, max: 4 },
+                TANK: { min: 2, max: 4 },
+                ARTILLERY: { min: 0, max: 2 },
+                ROCKET_SOLDIER: { min: 1, max: 2 }
+            },
+            ECONOMIST: {
+                RIFLEMAN: { min: 2, max: 4 },
+                TANK: { min: 1, max: 3 },
+                SCOUT_BUGGY: { min: 1, max: 3 },
+                ROCKET_SOLDIER: { min: 1, max: 2 }
+            },
+            BALANCED: {
+                RIFLEMAN: { min: 2, max: 4 },
+                TANK: { min: 1, max: 3 },
+                SCOUT_BUGGY: { min: 1, max: 3 },
+                ROCKET_SOLDIER: { min: 1, max: 2 },
+                HEAVY_TANK: { min: 0, max: 1, difficultyGate: 'HARD' },
+                STEALTH_TANK: { min: 0, max: 1, difficultyGate: 'BRUTAL' }
+            }
+        };
+
+        return templates[this.personality] || templates.BALANCED;
+    }
+
+    /**
+     * Check if difficulty meets gate requirement
+     */
+    meetsDifficultyGate(gate) {
+        const levels = ['EASY', 'NORMAL', 'HARD', 'BRUTAL'];
+        const currentLevel = levels.indexOf(this.difficulty);
+        const gateLevel = levels.indexOf(gate);
+        return currentLevel >= gateLevel;
+    }
+
+    /**
+     * Get base unit type for personality (used for filling patrol)
+     */
+    getBaseUnitType() {
+        switch (this.personality) {
+            case AI_PERSONALITY.RUSHER:
+                return 'RIFLEMAN';
+            case AI_PERSONALITY.TURTLE:
+                return 'TANK';
+            case AI_PERSONALITY.ECONOMIST:
+                return 'SCOUT_BUGGY';
+            default:
+                return 'RIFLEMAN';
+        }
+    }
+
+    /**
+     * Find least important unit in composition
+     */
+    findLeastImportantUnit(composition) {
+        // Priority order (remove these first)
+        const priority = [
+            'STEALTH_TANK', 'HEAVY_TANK', 'ARTILLERY',
+            'ROCKET_SOLDIER', 'TANK', 'SCOUT_BUGGY', 'RIFLEMAN'
+        ];
+
+        for (const unitType of priority) {
+            if (composition.includes(unitType)) {
+                return unitType;
+            }
+        }
+
+        return composition[0]; // Fallback
+    }
+
+    /**
+     * Calculate total cost of patrol composition
+     */
+    calculatePatrolCost(composition) {
+        const costs = {
+            RIFLEMAN: 150,
+            ROCKET_SOLDIER: 300,
+            ENGINEER: 500,
+            COMMANDO: 2000,
+            SCOUT_BUGGY: 400,
+            TANK: 800,
+            ARTILLERY: 1200,
+            HEAVY_TANK: 2500,
+            STEALTH_TANK: 1800
+        };
+
+        return composition.reduce((total, unitType) => total + (costs[unitType] || 0), 0);
+    }
+
 
     /**
      * Check for threats to base

@@ -1,0 +1,16 @@
+{
+  "name": "p5-web-games",
+  "version": "1.0.0",
+  "description": "Browser-based tower defense game with p5.js",
+  "scripts": {
+    "start": "http-server -p 8000 -c-1 > nul 2>&1 || http-server -p 8000 -c-1 > /dev/null 2>&1",
+    "dev": "start http://127.0.0.1:8000 && http-server -p 8000 -c-1 > nul 2>&1 || http-server -p 8000 -c-1 > /dev/null 2>&1"
+  },
+  "keywords": [
+    "p5.js",
+    "tower-defense",
+    "game"
+  ],
+  "author": "",
+  "license": "MIT"
+}

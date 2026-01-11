@@ -202,6 +202,9 @@ class Game {
             this.visibilityManager.registerPlayer(player);
         }
 
+        // Initialize EnemyDiscoveryTracker for detecting newly visible enemies
+        this.enemyDiscoveryTracker = new EnemyDiscoveryTracker();
+
         // Initialize Renderers
         this.screenEffectRenderer = new ScreenEffectRenderer();
         this.debugRenderer = new DebugRenderer();
@@ -453,6 +456,24 @@ class Game {
             this.visibilityManager.updateVisibility(this.players, this.unitManager, this.buildingManager);
         }
         const visTime = performance.now() - visStart;
+
+        // Check for newly discovered enemies (through fog of war revelation)
+        if (this.enemyDiscoveryTracker && this.unitManager && this.buildingManager) {
+            for (const player of this.players) {
+                const discoveries = this.enemyDiscoveryTracker.detectNewDiscoveries(
+                    player, this.visibilityManager, this.unitManager, this.buildingManager
+                );
+
+                for (const discovery of discoveries) {
+                    EVENTS.emit('ENEMY_REVEALED', {
+                        discoveredBy: player,
+                        enemy: discovery.entity,
+                        isBuilding: discovery.isBuilding,
+                        isHighPriority: discovery.isHighPriority
+                    });
+                }
+            }
+        }
 
         // Check victory/defeat conditions
         this.checkRTSEndConditions();

@@ -114,6 +114,25 @@ class Unit {
         // Human units spawn with AGGRESSIVE for immediate control
         this.stance = (owner && !owner.isHuman) ? RTS_UNIT_STANCES.HOLD_POSITION : RTS_UNIT_STANCES.AGGRESSIVE;
 
+        // Listen for enemy reveals - retarget if in sight
+        if (typeof EVENTS !== 'undefined') {
+            EVENTS.on('ENEMY_REVEALED', (data) => {
+                // Only respond if this unit belongs to the discovering player
+                if (data.discoveredBy === this.owner && this.stance === RTS_UNIT_STANCES.AGGRESSIVE) {
+                    const dist = this.distanceTo(data.enemy);
+                    const sightRange = this.getSightRange() * RTS_GRID.CELL_SIZE;
+
+                    if (dist <= sightRange) {
+                        // High priority targets interrupt current command
+                        if (data.isHighPriority && (!this.currentCommand || this.currentCommand.isComplete)) {
+                            const cmd = new AttackCommand(this, data.enemy, true);
+                            this.queueCommand(cmd, false, true);
+                        }
+                    }
+                }
+            });
+        }
+
         // Removed verbose logging - console.log is slow when spawning many units
     }
 
@@ -304,7 +323,8 @@ class Unit {
             switch (this.stance) {
                 case RTS_UNIT_STANCES.AGGRESSIVE:
                     // Seek and attack enemies (units or buildings) in sight range
-                    const enemy = this.findNearestTarget(this.getSightRange() * RTS_GRID.CELL_SIZE);
+                    // Uses priority-based targeting (defenses > units > economy)
+                    const enemy = this.findBestTarget(this.getSightRange() * RTS_GRID.CELL_SIZE);
                     if (enemy && enemy.active && !enemy.isDead()) {
                         const attackCmd = new AttackCommand(this, enemy, true);
                         this.queueCommand(attackCmd, false, true);
@@ -624,6 +644,110 @@ class Unit {
         }
 
         return nearest;
+    }
+
+    /**
+     * Find best target based on priority and distance
+     * Uses AI-style priority system for target selection
+     * Lower priority number = higher importance
+     * @param {number} maxRange - Search range in pixels
+     * @returns {Unit|Building|null} Best target or null
+     */
+    findBestTarget(maxRange) {
+        if (!Game.instance) return null;
+
+        const visibleEnemies = [];
+
+        // Get visible enemy units
+        if (Game.instance.unitManager) {
+            const units = Game.instance.unitManager.units;
+            for (const unit of units) {
+                if (unit.owner !== this.owner && this.owner.isEnemy(unit.owner) && !unit.isDead() && unit.active) {
+                    const dist = this.distanceTo(unit);
+                    if (dist <= maxRange) {
+                        visibleEnemies.push({
+                            entity: unit,
+                            distance: dist,
+                            priority: this.getTargetPriority(unit)
+                        });
+                    }
+                }
+            }
+        }
+
+        // Get visible enemy buildings
+        if (Game.instance.buildingManager) {
+            const buildings = Game.instance.buildingManager.buildings;
+            for (const building of buildings) {
+                if (building.owner !== this.owner && this.owner.isEnemy(building.owner) && !building.isDead() && building.active) {
+                    const dist = this.distanceTo(building);
+                    if (dist <= maxRange) {
+                        visibleEnemies.push({
+                            entity: building,
+                            distance: dist,
+                            priority: this.getTargetPriority(building)
+                        });
+                    }
+                }
+            }
+        }
+
+        if (visibleEnemies.length === 0) return null;
+
+        // Sort by priority first, then by distance
+        // Score: priority * 10000 + distance
+        // Lower score = better target
+        visibleEnemies.sort((a, b) => {
+            const scoreA = a.priority * 10000 + a.distance;
+            const scoreB = b.priority * 10000 + b.distance;
+            return scoreA - scoreB;
+        });
+
+        return visibleEnemies[0].entity;
+    }
+
+    /**
+     * Get target priority (lower = higher priority)
+     * Matches AI priority system for consistent behavior
+     * @param {Unit|Building} target - The entity to prioritize
+     * @returns {number} Priority value (0-10, lower is better)
+     */
+    getTargetPriority(target) {
+        // Defensive buildings - highest priority (priority 1)
+        if (target.type === 'guard_tower' || target.type === 'obelisk' ||
+            target.type === 'sam_site' || target.type === 'turret') {
+            return 1;
+        }
+
+        // Combat units (non-harvester units that can attack) - priority 2
+        if (target.config && target.config.damage > 0 &&
+            target.config.type?.toUpperCase() !== 'HARVESTER') {
+            return 2;
+        }
+
+        // Refineries - economy target - priority 3
+        if (target.type === 'refinery') {
+            return 3;
+        }
+
+        // Harvesters - economy target - priority 4
+        if (target.config && target.config.type?.toUpperCase() === 'HARVESTER') {
+            return 4;
+        }
+
+        // Production/utility buildings - priority 5
+        if (target.type === 'barracks' || target.type === 'war_factory' ||
+            target.type === 'tech_center' || target.type === 'power_plant' ||
+            target.type === 'silo') {
+            return 5;
+        }
+
+        // Construction Yard - lowest priority, kill last - priority 10
+        if (target.type === 'construction_yard') {
+            return 10;
+        }
+
+        return 6; // Default priority for unknown targets
     }
 
     // ===========================================
