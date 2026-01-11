@@ -116,11 +116,15 @@ class MapGenerator {
         this.pathClearances = [];
         this.surfaceMap = [];
         this.riverPaths = [];
+        this.chokePoints = [];
+        this.expansionZones = [];
 
         // Set noise seed for reproducibility
         if (typeof noiseSeed === 'function') {
             noiseSeed(this.seed);
         }
+
+        console.log(`MapGenerator: Generated map with seed ${this.seed}`);
 
         // Step 1: Place construction yards FIRST (needed for POI masking)
         this.generateStartPositions();
@@ -128,22 +132,28 @@ class MapGenerator {
         // Step 2: Place tiberium fields (needed for POI masking)
         this.generateTiberiumFields();
 
-        // Step 3: Generate base terrain surfaces with Perlin noise (masks out POIs)
+        // Step 3: Generate expansion zones (after tiberium to avoid overlap)
+        this.generateExpansionZones();
+
+        // Step 4: Generate base terrain surfaces with Perlin noise (masks out POIs)
         this.generateSurfaceMap();
 
-        // Step 4: Generate rivers using noise-based flow
+        // Step 5: Generate choke points between bases (after surface map created)
+        this.generateChokePoints();
+
+        // Step 6: Generate rivers using noise-based flow
         this.generateRivers();
 
-        // Step 5: Apply smooth terrain transitions around bases
+        // Step 7: Apply smooth terrain transitions around bases
         this.applyBaseTerrainTransitions();
 
-        // Step 6: Calculate path clearances between bases
+        // Step 8: Calculate path clearances between bases
         this.calculatePathClearances();
 
-        // Step 7: Add terrain features (avoiding paths and bases)
+        // Step 9: Add terrain features (avoiding paths, bases, chokes, expansions)
         this.generateTerrainFeatures();
 
-        // Step 8: Apply to grid if provided
+        // Step 10: Apply to grid if provided
         if (this.grid) {
             this.applyToGrid();
         }
@@ -154,6 +164,8 @@ class MapGenerator {
             terrainFeatures: this.terrainFeatures,
             surfaceMap: this.surfaceMap,
             riverPaths: this.riverPaths,
+            chokePoints: this.chokePoints,
+            expansionZones: this.expansionZones,
             seed: this.seed
         };
     }
@@ -846,6 +858,244 @@ class MapGenerator {
             }
         }
         return false;
+    }
+
+    /**
+     * Generate choke points - narrow corridors between bases
+     * Creates 2-4 tactical bottlenecks for defensive gameplay
+     */
+    generateChokePoints() {
+        if (this.startPositions.length < 2) return;
+
+        const player1 = this.startPositions[0];
+        const player2 = this.startPositions[1];
+
+        // Generate 2-4 choke points along different paths between bases
+        const chokeCount = 2 + Math.floor(this.rng() * 3);  // 2-4 chokes
+
+        for (let i = 0; i < chokeCount; i++) {
+            const t = (i + 1) / (chokeCount + 1);  // Position along path (evenly distributed)
+
+            // Add random variation to position
+            const variance = (this.rng() - 0.5) * 0.2;  // ±10% variation
+            const actualT = Math.max(0.2, Math.min(0.8, t + variance));
+
+            // Linear interpolation between bases
+            const centerX = Math.floor(player1.gridX + (player2.gridX - player1.gridX) * actualT);
+            const centerY = Math.floor(player1.gridY + (player2.gridY - player1.gridY) * actualT);
+
+            // Add perpendicular offset for variety
+            const perpAngle = Math.atan2(player2.gridY - player1.gridY, player2.gridX - player1.gridX) + Math.PI / 2;
+            const perpOffset = (this.rng() - 0.5) * 8;  // ±4 cells perpendicular
+            const chokeX = Math.floor(centerX + Math.cos(perpAngle) * perpOffset);
+            const chokeY = Math.floor(centerY + Math.sin(perpAngle) * perpOffset);
+
+            // Ensure choke point is within bounds
+            if (chokeX < 2 || chokeX >= this.cols - 2 || chokeY < 2 || chokeY >= this.rows - 2) {
+                continue;
+            }
+
+            // Choke point dimensions (narrow corridor)
+            const width = 3 + Math.floor(this.rng() * 2);  // 3-4 cells wide
+            const length = 4 + Math.floor(this.rng() * 3);  // 4-6 cells long
+
+            // Determine orientation based on base positions
+            const angle = Math.atan2(player2.gridY - player1.gridY, player2.gridX - player1.gridX);
+
+            this.chokePoints.push({
+                gridX: chokeX,
+                gridY: chokeY,
+                width: width,
+                length: length,
+                angle: angle,
+                cleared: false
+            });
+        }
+
+        // Apply choke points to surface map (clear terrain)
+        this.applyChokePoints();
+
+        console.log(`MapGenerator: Generated ${this.chokePoints.length} choke points`);
+    }
+
+    /**
+     * Apply choke points to surface map
+     * Clears narrow corridors and marks them to prevent tiberium/feature placement
+     */
+    applyChokePoints() {
+        for (const choke of this.chokePoints) {
+            // Clear corridor area
+            for (let dy = -choke.length; dy <= choke.length; dy++) {
+                for (let dx = -choke.width; dx <= choke.width; dx++) {
+                    // Rotate offset based on angle
+                    const rotX = Math.cos(choke.angle) * dx - Math.sin(choke.angle) * dy;
+                    const rotY = Math.sin(choke.angle) * dx + Math.cos(choke.angle) * dy;
+
+                    const gx = Math.floor(choke.gridX + rotX);
+                    const gy = Math.floor(choke.gridY + rotY);
+
+                    // Check bounds
+                    if (gx < 0 || gx >= this.cols || gy < 0 || gy >= this.rows) continue;
+
+                    // Only clear within corridor width
+                    if (Math.abs(dx) <= choke.width / 2 && Math.abs(dy) <= choke.length / 2) {
+                        // Set to sand (clear, walkable terrain)
+                        if (this.surfaceMap[gy] && this.surfaceMap[gy][gx]) {
+                            this.surfaceMap[gy][gx] = {
+                                type: SURFACE_TYPES.SAND,
+                                color: this.getSurfaceColor(SURFACE_TYPES.SAND, gx, gy),
+                                noiseValue: 0.5,
+                                blocked: false,
+                                walkable: true,
+                                buildable: true,
+                                isChokePoint: true
+                            };
+                        }
+                    }
+                }
+            }
+
+            choke.cleared = true;
+        }
+    }
+
+    /**
+     * Get choke points for game systems
+     * @returns {Array} Array of choke point data
+     */
+    getChokePoints() {
+        return this.chokePoints;
+    }
+
+    /**
+     * Generate expansion zones - strategic locations with buildable area + tiberium
+     * Creates 2-3 expansions per player at medium distance from base
+     */
+    generateExpansionZones() {
+        if (this.startPositions.length < 1) return;
+
+        const expansionsPerPlayer = 2 + Math.floor(this.rng());  // 2-3 expansions per player
+
+        for (const player of this.startPositions) {
+            for (let i = 0; i < expansionsPerPlayer; i++) {
+                const expansion = this.generateSingleExpansion(player, i);
+                if (expansion) {
+                    this.expansionZones.push(expansion);
+                }
+            }
+        }
+
+        console.log(`MapGenerator: Generated ${this.expansionZones.length} expansion zones`);
+    }
+
+    /**
+     * Generate a single expansion zone
+     * @param {object} basePos - Player's base position
+     * @param {number} index - Expansion index for this player
+     * @returns {object|null} Expansion data or null if generation failed
+     */
+    generateSingleExpansion(basePos, index) {
+        const maxAttempts = 20;
+        const minDist = 15;  // Minimum 15 cells from base
+        const maxDist = 25;  // Maximum 25 cells from base
+        const buildableSize = 8;  // 8×8 buildable area
+        const tiberiumRadius = 3;  // Tiberium field radius
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            // Random angle and distance
+            const angle = this.rng() * Math.PI * 2;
+            const distance = minDist + this.rng() * (maxDist - minDist);
+
+            const centerX = Math.floor(basePos.gridX + Math.cos(angle) * distance);
+            const centerY = Math.floor(basePos.gridY + Math.sin(angle) * distance);
+
+            // Check if expansion is within bounds (including buildable area and tiberium radius)
+            const margin = Math.max(buildableSize / 2, tiberiumRadius) + 1;
+            if (centerX - margin < 0 || centerX + margin >= this.cols ||
+                centerY - margin < 0 || centerY + margin >= this.rows) {
+                continue;
+            }
+
+            // Check if expansion overlaps with existing tiberium fields
+            let overlaps = false;
+            for (const field of this.tiberiumFields) {
+                const dist = Math.sqrt(
+                    Math.pow(centerX - field.gridX, 2) +
+                    Math.pow(centerY - field.gridY, 2)
+                );
+                if (dist < field.radius + tiberiumRadius + 3) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (overlaps) continue;
+
+            // Check if expansion overlaps with existing expansions
+            for (const existing of this.expansionZones) {
+                const dist = Math.sqrt(
+                    Math.pow(centerX - existing.gridX, 2) +
+                    Math.pow(centerY - existing.gridY, 2)
+                );
+                if (dist < buildableSize + 4) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (overlaps) continue;
+
+            // Check if too close to other bases
+            for (const otherBase of this.startPositions) {
+                if (otherBase.playerId === basePos.playerId) continue;
+                const dist = Math.sqrt(
+                    Math.pow(centerX - otherBase.gridX, 2) +
+                    Math.pow(centerY - otherBase.gridY, 2)
+                );
+                if (dist < minDist) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (overlaps) continue;
+
+            // Valid expansion location found
+            const expansion = {
+                playerId: basePos.playerId,
+                gridX: centerX,
+                gridY: centerY,
+                buildableSize: buildableSize,
+                tiberiumRadius: tiberiumRadius,
+                tiberiumField: null  // Will be populated below
+            };
+
+            // Create tiberium field for this expansion
+            const tiberiumField = {
+                gridX: centerX + Math.floor((this.rng() - 0.5) * 4),  // Slight offset
+                gridY: centerY + Math.floor((this.rng() - 0.5) * 4),
+                radius: tiberiumRadius,
+                density: 0.75,
+                type: 'green',
+                isExpansion: true,
+                expansionId: this.expansionZones.length
+            };
+
+            // Add tiberium field to global list
+            this.tiberiumFields.push(tiberiumField);
+            expansion.tiberiumField = tiberiumField;
+
+            return expansion;
+        }
+
+        // Failed to generate expansion after max attempts
+        console.warn(`MapGenerator: Failed to generate expansion ${index} for player ${basePos.playerId}`);
+        return null;
+    }
+
+    /**
+     * Get expansion zones for game systems
+     * @returns {Array} Array of expansion zone data
+     */
+    getExpansionZones() {
+        return this.expansionZones;
     }
 
     /**
