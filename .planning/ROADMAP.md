@@ -23,49 +23,46 @@
 
 ---
 
-## Phase 2: Faction System
+## Phase 2: Faction System ✅
+**Status:** Complete (2026-01-11)
+**Plans:** 1/1 completed
+**Commits:** 3 (075e6a6, 9ac709d, cc4b751)
+
 **Goal:** Implement 2-3 distinct factions with unique units and buildings
 
-**Why this now:** Core differentiator for the game. Affects all future systems (AI, balance, UI).
+**What was delivered:**
+- ✅ Faction data structure (RTS_FACTIONS in RTSConstants.js)
+- ✅ 3 factions: ALLIANCE (balanced/defensive), SYNDICATE (speed/stealth), COLLECTIVE (economy/tech)
+- ✅ Unique units per faction (5-8 unit types each, 520+ lines)
+- ✅ Unique buildings per faction (10-12 building types each)
+- ✅ Faction abilities: STEALTH (Syndicate), TELEPORT (Collective), SHIELD_REGEN (Alliance)
+- ✅ Player.faction property and faction assignment in Game.js
+- ✅ Visual differentiation (faction colors, symbols: ▲, ◆, ◈)
+- ✅ Manager integration (UnitManager, BuildingManager apply faction bonuses)
 
-**Deliverables:**
-- Faction data structure (RTSConstants.FACTIONS)
-- 3 factions: GDI-style (balanced), Nod-style (stealth/aggro), Scrin-style (tech/alien)
-- Unique units per faction (5-8 unit types each)
-- Unique buildings per faction (10-12 building types each)
-- Faction-specific abilities or mechanics (e.g., Nod stealth, Scrin teleportation)
-- Player.faction property and faction assignment in game setup
-
-**Research needed:** No — C&C3 factions are well-documented
-
-**Success criteria:**
-- 3 playable factions with different unit rosters
-- Each faction feels mechanically distinct (not just stat tweaks)
-- Buildings and units render with faction identification (colors/shapes)
+**Impact:** Factions feel mechanically distinct. Foundation for AI strategies and balance.
 
 ---
 
-## Phase 3: Procedural Map Generation
+## Phase 3: Procedural Map Generation ✅
+**Status:** Complete (2026-01-11)
+**Plans:** 1/1 completed
+**Commits:** 3 (3da6fcf, 5b928bc, 3a4202b)
+
 **Goal:** Generate balanced maps with terrain, resources, and tactical features
 
-**Why this now:** Maps affect balance, AI behavior, and replayability. Need before AI tuning.
+**What was delivered:**
+- ✅ Map size configuration (MAP_SIZES: SMALL 64×64, MEDIUM 96×96, LARGE 128×128)
+- ✅ Scaled terrain generation (noise scales inversely with map size)
+- ✅ Choke point generation (2-4 narrow corridors, 3-4 cells wide)
+- ✅ Expansion zone generation (2-3 per player, 8×8 buildable + tiberium radius 3)
+- ✅ Pathfinding validation (automatic map regeneration, max 10 attempts)
+- ✅ Seed logging (console output for reproducibility)
+- ✅ Game.js integration (map size presets, choke point/expansion storage for AI)
+- ✅ Terrain already integrated with pathfinding (CLIFF and DEEP_WATER unwalkable)
+- ✅ Start positions symmetric (existing 2P layout preserved)
 
-**Deliverables:**
-- Terrain generation (grass, cliffs, water tiles)
-- Cliff barriers with pathfinding integration
-- Water tiles with movement restrictions
-- Tiberium field placement (balanced distance from spawns)
-- Start position generation (2-8 players, symmetric or mirrored)
-- Choke points and expansion locations
-- Map size configuration (small: 64x64, medium: 96x96, large: 128x128)
-
-**Research needed:** Yes — procedural RTS map generation algorithms (Perlin noise, symmetry, balance)
-
-**Success criteria:**
-- No two games have identical maps
-- Players spawn with equal access to resources
-- Maps have defendable choke points and expansion opportunities
-- Pathfinding works correctly with terrain
+**Impact:** ~386 lines added. Maps now have tactical features (choke points, expansions) for strategic gameplay. AI can use choke points and expansions in Phase 4.
 
 ---
 

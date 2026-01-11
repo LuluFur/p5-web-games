@@ -8,7 +8,7 @@
 
 **Milestone 1** — Full RTS game (7 phases)
 
-**Status:** Phase 1 complete, Phase 2 ready to plan
+**Status:** Phase 3 complete, Phase 4 ready to plan
 
 ---
 
@@ -18,25 +18,42 @@
 |-------|------|--------|-------|------------|
 | 1 | Foundation & Cleanup | ✅ Complete | 1/1 | 100% |
 | 2 | Faction System | ✅ Complete | 1/1 | 100% |
-| 3 | Procedural Map Generation | Not Started | 0/0 | 0% |
+| 3 | Procedural Map Generation | ✅ Complete | 1/1 | 100% |
 | 4 | AI Enhancement | Not Started | 0/0 | 0% |
 | 5 | Performance & Testing | Not Started | 0/0 | 0% |
 | 6 | UI & Polish | Not Started | 0/0 | 0% |
 | 7 | Integration & Balance | Not Started | 0/0 | 0% |
 
-**Overall:** 2/7 phases complete (29%)
+**Overall:** 3/7 phases complete (43%)
 
 ---
 
 ## Active Work
 
-**None** — Phase 2 complete, ready for Phase 3
+**Phase 4: AI Enhancement** — Ready to plan
 
-**Next step:** Run `/gsd:plan-phase 3` to plan Procedural Map Generation
+**Next step:** Run `/gsd:plan-phase 4` to create AI implementation plan
+
+**Previous:** Phase 3 complete (map generation with choke points, expansions)
 
 ---
 
 ## Recent Completions
+
+### Phase 3: Procedural Map Generation ✅
+**Completed:** 2026-01-11
+**Plans:** 1/1 (phase-3-map-generation)
+**Commits:** 3 (3da6fcf, 5b928bc, 3a4202b)
+
+**Summary:**
+- Added map size configuration: SMALL (64×64), MEDIUM (96×96), LARGE (128×128)
+- Implemented choke point generation (2-4 narrow corridors, 3-4 cells wide)
+- Implemented expansion zone generation (2-3 per player, 8×8 buildable + tiberium)
+- Integrated pathfinding validation with automatic map regeneration (max 10 attempts)
+- Added seed logging and getMapSeed() method for reproducibility
+- Updated Game.js to use map size presets and store choke points/expansions
+
+**Automated verification:** All checks passed ✓
 
 ### Phase 2: Faction System ✅
 **Completed:** 2026-01-11
@@ -90,13 +107,16 @@
 - Created Phase 2 plan (phase-2-factions-PLAN.md) - Faction system with 3 factions
 - Executed Phase 2 (8 tasks, 3 commits)
 - **Phase 2 complete** - Factions fully integrated with abilities and visuals
+- Created Phase 3 plan (phase-3-map-generation-PLAN.md) - Map size config, choke points, expansions
+- Executed Phase 3 (6 tasks, 3 commits)
+- **Phase 3 complete** - Procedural map generation with validation and strategic features
 
 ---
 
 ## Context
 
 **Last active:** 2026-01-11
-**Current phase:** 3 (ready to plan)
+**Current phase:** 4 (ready to plan)
 **Mode:** YOLO (auto-approve)
 **Depth:** Standard (5-8 phases, 3-5 plans each)
 
