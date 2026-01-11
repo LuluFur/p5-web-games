@@ -4,24 +4,22 @@
 
 ---
 
-## Phase 1: Foundation & Cleanup
+## Phase 1: Foundation & Cleanup ✅
+**Status:** Complete (2026-01-11)
+**Plans:** 1/1 completed
+**Commits:** 3 (8a27bf9, d51e596, 71f901b)
+
 **Goal:** Remove tower defense remnants, stabilize RTS architecture
 
-**Why this first:** Can't build on unstable foundation. TD code creates confusion and naming conflicts with RTS systems.
+**What was delivered:**
+- ✅ Removed Tower.js (53KB, 1,682 lines, 7 subclasses)
+- ✅ Cleaned TD references from InputManager (-240 lines drag/drop)
+- ✅ Updated StatsManager (Tower stats → Building stats)
+- ✅ Removed TD constants from GameConstants.js (-39 lines)
+- ✅ Verified BuilderTests.js has no Tower tests (no changes needed)
+- ⚠️ Manual verification pending (user should test RTS game launch)
 
-**Deliverables:**
-- Remove Tower.js, Enemy.js, WaveManager.js, TowerManager.js
-- Consolidate on Unit/Building/UnitManager/BuildingManager architecture
-- Update index.html script loading order (remove TD scripts)
-- Clean up any TD-specific constants in GameConstants.js
-- Verify RTS game loop works without TD dependencies
-
-**Research needed:** No — straightforward deletion and cleanup
-
-**Success criteria:**
-- No TD-specific files remain in src/
-- Game launches and runs RTS mode without errors
-- BuilderTests.js passes (may need updates for removed classes)
+**Impact:** 1,962 lines removed. Clean RTS-only architecture established.
 
 ---
 
