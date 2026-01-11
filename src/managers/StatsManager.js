@@ -10,8 +10,8 @@ class StatsManager {
         this.enemiesKilled = 0;
         this.enemiesKilledByType = {};
         this.damageDealt = 0;
-        this.towersBuilt = 0;
-        this.towersByType = {};
+        // TD tower stats removed - RTS uses building stats
+        this.buildingsPlaced = 0;
 
         // Economy stats
         this.goldEarned = 0;
@@ -44,12 +44,9 @@ class StatsManager {
         this.damageDealt += amount;
     }
 
-    recordTowerBuilt(towerType) {
-        this.towersBuilt++;
-        if (!this.towersByType[towerType]) {
-            this.towersByType[towerType] = 0;
-        }
-        this.towersByType[towerType]++;
+    // TD tower tracking removed - RTS uses building tracking
+    recordBuildingPlaced(buildingType) {
+        this.buildingsPlaced++;
     }
 
     recordGoldEarned(amount) {
@@ -161,16 +158,15 @@ class StatsManager {
     }
 
     getAccuracy() {
-        // Calculate tower shot accuracy (could be enhanced with projectile tracking)
-        // For now, simple estimate based on damage vs enemies
-        return Math.min(100, Math.floor((this.enemiesKilled / Math.max(1, this.towersBuilt)) * 10));
+        // Accuracy calculation simplified for RTS
+        return Math.min(100, Math.floor((this.enemiesKilled / Math.max(1, this.buildingsPlaced)) * 10));
     }
 
     getSummary() {
         return {
             enemiesKilled: this.enemiesKilled,
             wavesCompleted: this.wavesCompleted,
-            towersBuilt: this.towersBuilt,
+            buildingsPlaced: this.buildingsPlaced,
             livesLost: this.livesLost,
             goldEarned: this.goldEarned,
             goldSpent: this.goldSpent,
