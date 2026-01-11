@@ -1,0 +1,13 @@
+{
+  "workflow": {
+    "mode": "yolo",
+    "depth": "standard"
+  },
+  "project": {
+    "name": "Tiberium Wars RTS",
+    "type": "brownfield",
+    "tech_stack": "p5.js + vanilla JS"
+  },
+  "created": "2026-01-11",
+  "version": "1.0.0"
+}
