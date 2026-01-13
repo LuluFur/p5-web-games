@@ -143,65 +143,210 @@ class AIController {
 
     /**
      * Initialize build order based on personality
+     * Uses RTS_AI_WEIGHTS for data-driven build orders
      */
     initializeBuildOrder() {
-        switch (this.personality) {
-            case AI_PERSONALITY.RUSHER:
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'unit', name: 'infantry', count: 5 },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'unit', name: 'infantry', count: 5 },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'unit', name: 'infantry', count: 10 }
-                ];
-                break;
+        // Use RTS_AI_WEIGHTS if available and personality matches
+        const aiWeights = typeof RTS_AI_WEIGHTS !== 'undefined' ? RTS_AI_WEIGHTS : null;
 
-            case AI_PERSONALITY.TURTLE:
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'unit', name: 'infantry', count: 3 },
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'building', name: 'war_factory' },
-                    { type: 'unit', name: 'vehicle', count: 3 }
-                ];
-                break;
+        if (aiWeights && aiWeights[this.personality] && aiWeights[this.personality].buildOrder) {
+            // Convert RTS_AI_WEIGHTS build order to internal format
+            this.buildQueue = aiWeights[this.personality].buildOrder.map(buildingName => ({
+                type: 'building',
+                name: buildingName.toLowerCase()
+            }));
 
-            case AI_PERSONALITY.ECONOMIST:
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'silo' },
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'building', name: 'war_factory' },
-                    { type: 'unit', name: 'vehicle', count: 5 },
-                    { type: 'building', name: 'tech_center' }
-                ];
-                break;
+            // Add unit production after build order
+            const preferredUnits = aiWeights[this.personality].preferredUnits || ['infantry'];
+            this.buildQueue.push({
+                type: 'unit',
+                name: 'infantry',  // Generic type, will be translated to faction unit
+                count: 5
+            });
 
-            default: // BALANCED
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'unit', name: 'infantry', count: 3 },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'war_factory' },
-                    { type: 'unit', name: 'vehicle', count: 2 },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'unit', name: 'infantry', count: 5 },
-                    { type: 'attack' }
-                ];
+            console.log(`[AI] ${this.personality} using RTS_AI_WEIGHTS build order`);
+        } else {
+            // Fallback to hardcoded build orders
+            switch (this.personality) {
+                case AI_PERSONALITY.RUSHER:
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'unit', name: 'infantry', count: 5 },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'unit', name: 'infantry', count: 5 },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'unit', name: 'infantry', count: 10 }
+                    ];
+                    break;
+
+                case AI_PERSONALITY.TURTLE:
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'unit', name: 'infantry', count: 3 },
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'building', name: 'war_factory' },
+                        { type: 'unit', name: 'vehicle', count: 3 }
+                    ];
+                    break;
+
+                case AI_PERSONALITY.ECONOMIST:
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'silo' },
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'building', name: 'war_factory' },
+                        { type: 'unit', name: 'vehicle', count: 5 },
+                        { type: 'building', name: 'tech_center' }
+                    ];
+                    break;
+
+                default: // BALANCED
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'unit', name: 'infantry', count: 3 },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'war_factory' },
+                        { type: 'unit', name: 'vehicle', count: 2 },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'unit', name: 'infantry', count: 5 },
+                        { type: 'attack' }
+                    ];
+            }
         }
+    }
+
+    /**
+     * Translate generic unit type to faction-specific unit
+     * @param {string} genericType - 'infantry', 'vehicle', 'harvester', etc.
+     * @returns {string} Faction-specific unit name (e.g., 'RIFLEMAN', 'MILITANT', 'SHOCK_TROOPER')
+     */
+    getFactionUnit(genericType) {
+        if (!this.player || !this.player.factionData) {
+            console.warn(`[AI] getFactionUnit: No faction data available, using generic type: ${genericType}`);
+            return genericType;
+        }
+
+        const faction = this.player.faction;
+        const factionData = this.player.factionData;
+
+        // Map generic types to faction-specific units
+        const unitMappings = {
+            'infantry': this.selectInfantryUnit(factionData),
+            'vehicle': this.selectVehicleUnit(factionData),
+            'harvester': 'HARVESTER',  // All factions have HARVESTER
+            'engineer': 'ENGINEER'      // All factions have ENGINEER
+        };
+
+        const factionUnit = unitMappings[genericType.toLowerCase()];
+
+        if (!factionUnit) {
+            console.warn(`[AI] getFactionUnit: No faction mapping for type: ${genericType}, using generic`);
+            return genericType;
+        }
+
+        console.log(`[AI] ${faction} translated ${genericType} → ${factionUnit}`);
+        return factionUnit;
+    }
+
+    /**
+     * Select appropriate infantry unit for faction
+     * @param {Object} factionData - Player's faction data
+     * @returns {string} Infantry unit name
+     */
+    selectInfantryUnit(factionData) {
+        const faction = this.player.faction;
+
+        // Faction-specific infantry mappings
+        if (faction === 'ALLIANCE') {
+            return 'RIFLEMAN';
+        } else if (faction === 'SYNDICATE') {
+            return 'MILITANT';
+        } else if (faction === 'COLLECTIVE') {
+            return 'SHOCK_TROOPER';
+        }
+
+        // Fallback: find first infantry unit in faction roster
+        if (factionData.units) {
+            for (const [unitName, unitData] of Object.entries(factionData.units)) {
+                if (unitData.type === RTS_UNIT_TYPES.INFANTRY && unitName !== 'ENGINEER') {
+                    return unitName;
+                }
+            }
+        }
+
+        return 'RIFLEMAN';  // Ultimate fallback
+    }
+
+    /**
+     * Select appropriate vehicle unit for faction
+     * @param {Object} factionData - Player's faction data
+     * @returns {string} Vehicle unit name
+     */
+    selectVehicleUnit(factionData) {
+        // All factions have TANK as baseline vehicle
+        if (factionData.units && factionData.units.TANK) {
+            return 'TANK';
+        }
+
+        // Fallback: find first vehicle unit in faction roster
+        if (factionData.units) {
+            for (const [unitName, unitData] of Object.entries(factionData.units)) {
+                if (unitData.type === RTS_UNIT_TYPES.VEHICLE && unitName !== 'HARVESTER') {
+                    return unitName;
+                }
+            }
+        }
+
+        return 'TANK';  // Ultimate fallback
+    }
+
+    /**
+     * Translate generic building type to faction-specific building
+     * @param {string} genericType - 'barracks', 'war_factory', etc.
+     * @returns {string} Faction-specific building name
+     */
+    getFactionBuilding(genericType) {
+        if (!this.player || !this.player.factionData) {
+            return genericType.toUpperCase();
+        }
+
+        const faction = this.player.faction;
+
+        // Map generic building names to faction-specific names
+        const buildingMappings = {
+            'barracks': faction === 'ALLIANCE' ? 'BARRACKS' :
+                       faction === 'SYNDICATE' ? 'HAND_OF_NOD' :
+                       'PORTAL',
+            'war_factory': 'WAR_FACTORY',
+            'power_plant': 'POWER_PLANT',
+            'refinery': 'REFINERY',
+            'guard_tower': 'GUARD_TOWER',
+            'tech_center': 'TECH_CENTER',
+            'silo': 'TIBERIUM_SILO',
+            'construction_yard': 'CONSTRUCTION_YARD',
+            'armory': 'ARMORY',
+            'radar': 'RADAR'
+        };
+
+        const factionBuilding = buildingMappings[genericType.toLowerCase()];
+
+        if (!factionBuilding) {
+            return genericType.toUpperCase();
+        }
+
+        return factionBuilding;
     }
 
     /**
@@ -464,6 +609,9 @@ class AIController {
     tryBuildBuilding(buildingType) {
         if (!Game.instance || !Game.instance.buildingManager) return false;
 
+        // Translate generic building type to faction-specific building
+        const factionBuilding = this.getFactionBuilding(buildingType);
+
         // Check if we can afford it
         const cost = this.getBuildingCost(buildingType);
         if (this.player.resources.tiberium < cost) {
@@ -472,7 +620,7 @@ class AIController {
 
         // Check if building requirements are met
         const buildingManager = Game.instance.buildingManager;
-        if (!buildingManager.meetsRequirements(buildingType, this.player)) {
+        if (!buildingManager.meetsRequirements(factionBuilding, this.player)) {
             return false;
         }
 
@@ -484,7 +632,7 @@ class AIController {
 
         // Build it (placeBuilding handles resource deduction and final validation)
         const success = buildingManager.placeBuilding(
-            buildingType,
+            factionBuilding,
             position.gridX,
             position.gridY,
             this.player
@@ -583,6 +731,9 @@ class AIController {
     tryProduceUnits(unitType, count) {
         if (!Game.instance || !Game.instance.buildingManager) return false;
 
+        // Translate generic unit type to faction-specific unit
+        const factionUnit = this.getFactionUnit(unitType);
+
         const unitCost = this.getUnitCost(unitType);
         const producerType = this.getProducerBuilding(unitType);
 
@@ -596,7 +747,7 @@ class AIController {
         let produced = 0;
         for (let i = 0; i < count; i++) {
             if (this.player.resources.tiberium >= unitCost) {
-                if (this.queueUnit(producer, unitType)) {
+                if (this.queueUnit(producer, factionUnit)) {
                     this.player.resources.tiberium -= unitCost;
                     produced++;
                 }
