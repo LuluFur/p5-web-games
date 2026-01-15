@@ -354,7 +354,7 @@ class AIController {
                        faction === 'SYNDICATE' ? 'HAND_OF_NOD' :
                        'PORTAL',
             'war_factory': 'WAR_FACTORY',
-            'power_plant': 'POWER_PLANT',
+            'power_plant': RTS_BUILDINGS.POWER_PLANT,
             'refinery': 'REFINERY',
             'guard_tower': 'GUARD_TOWER',
             'tech_center': 'TECH_CENTER',
