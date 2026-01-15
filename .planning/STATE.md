@@ -8,7 +8,7 @@
 
 **Milestone 1** — Full RTS game (7 phases)
 
-**Status:** Phase 3 complete, Phase 4 ready to plan
+**Status:** Phase 4 complete, Phase 5 ready to plan
 
 ---
 
@@ -19,26 +19,42 @@
 | 1 | Foundation & Cleanup | ✅ Complete | 1/1 | 100% |
 | 2 | Faction System | ✅ Complete | 1/1 | 100% |
 | 3 | Procedural Map Generation | ✅ Complete | 1/1 | 100% |
-| 4 | AI Enhancement | Not Started | 0/0 | 0% |
+| 4 | AI Enhancement | ✅ Complete | 1/1 | 100% |
 | 5 | Performance & Testing | Not Started | 0/0 | 0% |
 | 6 | UI & Polish | Not Started | 0/0 | 0% |
 | 7 | Integration & Balance | Not Started | 0/0 | 0% |
 
-**Overall:** 3/7 phases complete (43%)
+**Overall:** 4/7 phases complete (57%)
 
 ---
 
 ## Active Work
 
-**Phase 4: AI Enhancement** — Ready to plan
+**Phase 5: Performance & Testing** — Ready to plan
 
-**Next step:** Run `/gsd:plan-phase 4` to create AI implementation plan
+**Next step:** Run `/gsd:plan-phase 5` to create Performance & Testing implementation plan
 
-**Previous:** Phase 3 complete (map generation with choke points, expansions)
+**Previous:** Phase 4 complete (AI enhancement with tactical decision-making)
 
 ---
 
 ## Recent Completions
+
+### Phase 4: AI Enhancement ✅
+**Completed:** 2026-01-15
+**Plans:** 1/1 (phase-4-ai)
+**Commits:** 2 (8d9ec1d, fdf9557)
+
+**Summary:**
+- Added expansion zone capture with scoring algorithm (distance, tiberium, contest status)
+- Implemented choke point defensive positioning for base defense
+- Added tactical retreat logic with personality-based thresholds (20%-60%)
+- Implemented counter-unit selection based on enemy composition
+- Enhanced scouting to prioritize expansion zones and track enemy bases
+- Added difficulty-scaled decision making (40%-100% quality factor)
+- Integrated event system for reactive AI updates
+
+**Automated verification:** All checks passed (syntax validation) ✓
 
 ### Phase 3: Procedural Map Generation ✅
 **Completed:** 2026-01-11
@@ -99,6 +115,10 @@
 
 ## Session Log
 
+**2026-01-15:**
+- Executed Phase 4 (8 tasks, 2 commits)
+- **Phase 4 complete** - AI enhancement with tactical decision-making
+
 **2026-01-11:**
 - Initialized project (PROJECT.md, config.json, ROADMAP.md)
 - Created Phase 1 plan (phase-1-cleanup-PLAN.md)
@@ -115,8 +135,8 @@
 
 ## Context
 
-**Last active:** 2026-01-12
-**Current phase:** 4 (planned, ready to execute)
+**Last active:** 2026-01-15
+**Current phase:** 5 (ready to plan)
 **Mode:** YOLO (auto-approve)
 **Depth:** Standard (5-8 phases, 3-5 plans each)
 
