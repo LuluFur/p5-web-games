@@ -348,20 +348,18 @@ class AIController {
 
         const faction = this.player.faction;
 
-        // Map generic building names to faction-specific names
+        // Map generic building names to available building types
         const buildingMappings = {
-            'barracks': faction === 'ALLIANCE' ? 'BARRACKS' :
-                       faction === 'SYNDICATE' ? 'HAND_OF_NOD' :
-                       'PORTAL',
-            'war_factory': 'WAR_FACTORY',
-            'power_plant': RTS_BUILDINGS.POWER_PLANT,
-            'refinery': 'REFINERY',
-            'guard_tower': 'GUARD_TOWER',
-            'tech_center': 'TECH_CENTER',
-            'silo': 'TIBERIUM_SILO',
-            'construction_yard': 'CONSTRUCTION_YARD',
-            'armory': 'ARMORY',
-            'radar': 'RADAR'
+            'barracks': 'barracks',  // Use generic barracks for all factions
+            'war_factory': 'war_factory',
+            'power_plant': 'power_plant',
+            'refinery': 'refinery',
+            'guard_tower': 'guard_tower',
+            'tech_center': 'tech_center',
+            'silo': 'silo',  // BuildingManager uses 'silo' not 'tiberium_silo'
+            'construction_yard': 'construction_yard',
+            'armory': 'armory',
+            'radar': 'radar'
         };
 
         const factionBuilding = buildingMappings[genericType.toLowerCase()];
