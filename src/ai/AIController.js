@@ -117,6 +117,11 @@ class AIController {
         // Initialize build order based on personality
         this.initializeBuildOrder();
 
+        // Strategic systems
+        this.strategicPlacementEngine = new StrategicPlacementEngine();
+        this.defenseCoordinator = new DefenseCoordinator(this);
+        this.priorityQueue = []; // For urgent defense placement
+
         // Unit cache to avoid filtering every frame
         this._unitCache = {
             army: [],
@@ -420,6 +425,9 @@ class AIController {
         // Update unit cache periodically
         this.updateUnitCache();
 
+        // Process priority queue for urgent actions
+        this.processPriorityQueue();
+
         // Apply resource bonus for harder difficulties
         this.applyResourceBonus(deltaTime);
 
@@ -666,6 +674,11 @@ class AIController {
             this.player
         );
 
+        if (success) {
+            // Deploy automatic defenses for DEFENDED mode buildings
+            this.deployDefenseForNewBuilding(buildingType, position);
+        }
+
         return success;
     }
 
@@ -686,9 +699,86 @@ class AIController {
     }
 
     /**
+     * Deploy defenses for newly placed building
+     */
+    deployDefenseForNewBuilding(buildingType, position) {
+        // Get the actual building object from building manager
+        const buildingManager = Game.instance?.buildingManager;
+        if (!buildingManager) return;
+
+        // Find the building that was just placed
+        const placedBuilding = buildingManager.buildings.find(b => 
+            b.gridX === position.gridX && 
+            b.gridY === position.gridY && 
+            b.player === this.player
+        );
+
+        if (!placedBuilding) return;
+
+        // Use defense coordinator to deploy defenses
+        this.defenseCoordinator.deployDefenseForBuilding(placedBuilding, this.personality);
+    }
+
+    /**
+     * Process priority queue for urgent actions
+     */
+    processPriorityQueue() {
+        if (this.priorityQueue.length === 0) return;
+
+        // Sort by priority
+        this.priorityQueue.sort((a, b) => {
+            const priorityOrder = { 'URGENT': 3, 'HIGH': 2, 'MEDIUM': 1, 'LOW': 0 };
+            return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+        });
+
+        // Process highest priority item if resources available
+        const item = this.priorityQueue[0];
+        if (this.player.resources.tiberium >= this.getBuildingCost(item.buildingType)) {
+            const success = this.tryBuildBuilding(item.buildingType);
+            if (success) {
+                this.priorityQueue.shift(); // Remove processed item
+                console.log(`[AI] ${this.personality} processed priority: ${item.buildingType}`);
+            }
+        }
+    }
+
+    /**
      * Find valid placement for a building
      */
     findBuildingPlacement(buildingType) {
+        if (!Game.instance || !Game.instance.grid) return null;
+
+        const grid = Game.instance.grid;
+        const buildingManager = Game.instance.buildingManager;
+        
+        // Get existing buildings for context
+        const existingBuildings = buildingManager.buildings.filter(
+            b => b.player === this.player
+        ).map(b => ({
+            type: b.constructor.name.toLowerCase().replace('building', ''),
+            position: { x: b.gridX || b.x, y: b.gridY || b.y }
+        }));
+
+        // Use strategic placement engine
+        const position = this.strategicPlacementEngine.findPlacement(
+            buildingType,
+            this.player,
+            existingBuildings,
+            grid
+        );
+
+        // Fallback to old method if strategic placement fails
+        if (!position) {
+            return this.findFallbackPlacement(buildingType);
+        }
+
+        return position;
+    }
+
+    /**
+     * Fallback placement using old spiral method
+     */
+    findFallbackPlacement(buildingType) {
         if (!Game.instance || !Game.instance.grid) return null;
 
         const grid = Game.instance.grid;
@@ -2655,6 +2745,9 @@ class AIController {
         this._onUnitCreated = this.onUnitCreated.bind(this);
         this._onTiberiumDepleted = this.onTiberiumDepleted.bind(this);
 
+        // Initialize defense coordinator with game instance
+        this.defenseCoordinator.initialize(Game.instance);
+
         // Subscribe to relevant events
         this.eventManager.on('ENEMY_REVEALED', this._onEnemyRevealed);
         this.eventManager.on('BUILDING_DESTROYED', this._onBuildingDestroyed);
@@ -2710,6 +2803,9 @@ class AIController {
     onBuildingDestroyed(data) {
         const building = data.building;
         if (!building) return;
+
+        // Handle defense adaptation through defense coordinator
+        this.defenseCoordinator.onBuildingDestroyed(building, data.destroyer);
 
         // Remove from known enemies if it was tracked
         const idx = this.knownEnemyBuildings.indexOf(building);
