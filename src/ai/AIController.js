@@ -132,76 +132,245 @@ class AIController {
      */
     destroy() {
         this.enabled = false;
+
+        // Unsubscribe from game events (Task 8)
+        this.unsubscribeFromEvents();
+
         this.player = null;
         this.buildQueue = [];
         this.attackTarget = null;
         this.knownEnemyBuildings = [];
         this.knownEnemyUnits = [];
+        this.knownEnemyBases = [];
+        this.claimedExpansions = null;
         this._unitCache = null;
         console.log('AIController destroyed');
     }
 
     /**
+     * Initialize event subscriptions (Task 8)
+     * Call this once Game.instance is available
+     */
+    initializeEventSubscriptions() {
+        // Delay subscription to ensure Game.instance exists
+        if (Game.instance?.eventManager) {
+            this.subscribeToEvents();
+        } else {
+            // Retry after a short delay
+            setTimeout(() => {
+                if (Game.instance?.eventManager) {
+                    this.subscribeToEvents();
+                }
+            }, 1000);
+        }
+    }
+
+    /**
      * Initialize build order based on personality
+     * Uses RTS_AI_WEIGHTS for data-driven build orders
      */
     initializeBuildOrder() {
-        switch (this.personality) {
-            case AI_PERSONALITY.RUSHER:
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'unit', name: 'infantry', count: 5 },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'unit', name: 'infantry', count: 5 },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'unit', name: 'infantry', count: 10 }
-                ];
-                break;
+        // Use RTS_AI_WEIGHTS if available and personality matches
+        const aiWeights = typeof RTS_AI_WEIGHTS !== 'undefined' ? RTS_AI_WEIGHTS : null;
 
-            case AI_PERSONALITY.TURTLE:
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'unit', name: 'infantry', count: 3 },
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'building', name: 'war_factory' },
-                    { type: 'unit', name: 'vehicle', count: 3 }
-                ];
-                break;
+        if (aiWeights && aiWeights[this.personality] && aiWeights[this.personality].buildOrder) {
+            // Convert RTS_AI_WEIGHTS build order to internal format
+            this.buildQueue = aiWeights[this.personality].buildOrder.map(buildingName => ({
+                type: 'building',
+                name: buildingName.toLowerCase()
+            }));
 
-            case AI_PERSONALITY.ECONOMIST:
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'silo' },
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'building', name: 'war_factory' },
-                    { type: 'unit', name: 'vehicle', count: 5 },
-                    { type: 'building', name: 'tech_center' }
-                ];
-                break;
+            // Add unit production after build order
+            const preferredUnits = aiWeights[this.personality].preferredUnits || ['infantry'];
+            this.buildQueue.push({
+                type: 'unit',
+                name: 'infantry',  // Generic type, will be translated to faction unit
+                count: 5
+            });
 
-            default: // BALANCED
-                this.buildQueue = [
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'building', name: 'barracks' },
-                    { type: 'unit', name: 'infantry', count: 3 },
-                    { type: 'building', name: 'guard_tower' },
-                    { type: 'building', name: 'power_plant' },
-                    { type: 'building', name: 'war_factory' },
-                    { type: 'unit', name: 'vehicle', count: 2 },
-                    { type: 'building', name: 'refinery' },
-                    { type: 'unit', name: 'infantry', count: 5 },
-                    { type: 'attack' }
-                ];
+            console.log(`[AI] ${this.personality} using RTS_AI_WEIGHTS build order`);
+        } else {
+            // Fallback to hardcoded build orders
+            switch (this.personality) {
+                case AI_PERSONALITY.RUSHER:
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'unit', name: 'infantry', count: 5 },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'unit', name: 'infantry', count: 5 },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'unit', name: 'infantry', count: 10 }
+                    ];
+                    break;
+
+                case AI_PERSONALITY.TURTLE:
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'unit', name: 'infantry', count: 3 },
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'building', name: 'war_factory' },
+                        { type: 'unit', name: 'vehicle', count: 3 }
+                    ];
+                    break;
+
+                case AI_PERSONALITY.ECONOMIST:
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'silo' },
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'building', name: 'war_factory' },
+                        { type: 'unit', name: 'vehicle', count: 5 },
+                        { type: 'building', name: 'tech_center' }
+                    ];
+                    break;
+
+                default: // BALANCED
+                    this.buildQueue = [
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'building', name: 'barracks' },
+                        { type: 'unit', name: 'infantry', count: 3 },
+                        { type: 'building', name: 'guard_tower' },
+                        { type: 'building', name: 'power_plant' },
+                        { type: 'building', name: 'war_factory' },
+                        { type: 'unit', name: 'vehicle', count: 2 },
+                        { type: 'building', name: 'refinery' },
+                        { type: 'unit', name: 'infantry', count: 5 },
+                        { type: 'attack' }
+                    ];
+            }
         }
+    }
+
+    /**
+     * Translate generic unit type to faction-specific unit
+     * @param {string} genericType - 'infantry', 'vehicle', 'harvester', etc.
+     * @returns {string} Faction-specific unit name (e.g., 'RIFLEMAN', 'MILITANT', 'SHOCK_TROOPER')
+     */
+    getFactionUnit(genericType) {
+        if (!this.player || !this.player.factionData) {
+            console.warn(`[AI] getFactionUnit: No faction data available, using generic type: ${genericType}`);
+            return genericType;
+        }
+
+        const faction = this.player.faction;
+        const factionData = this.player.factionData;
+
+        // Map generic types to faction-specific units
+        const unitMappings = {
+            'infantry': this.selectInfantryUnit(factionData),
+            'vehicle': this.selectVehicleUnit(factionData),
+            'harvester': 'HARVESTER',  // All factions have HARVESTER
+            'engineer': 'ENGINEER'      // All factions have ENGINEER
+        };
+
+        const factionUnit = unitMappings[genericType.toLowerCase()];
+
+        if (!factionUnit) {
+            console.warn(`[AI] getFactionUnit: No faction mapping for type: ${genericType}, using generic`);
+            return genericType;
+        }
+
+        console.log(`[AI] ${faction} translated ${genericType} → ${factionUnit}`);
+        return factionUnit;
+    }
+
+    /**
+     * Select appropriate infantry unit for faction
+     * @param {Object} factionData - Player's faction data
+     * @returns {string} Infantry unit name
+     */
+    selectInfantryUnit(factionData) {
+        const faction = this.player.faction;
+
+        // Faction-specific infantry mappings
+        if (faction === 'ALLIANCE') {
+            return 'RIFLEMAN';
+        } else if (faction === 'SYNDICATE') {
+            return 'MILITANT';
+        } else if (faction === 'COLLECTIVE') {
+            return 'SHOCK_TROOPER';
+        }
+
+        // Fallback: find first infantry unit in faction roster
+        if (factionData.units) {
+            for (const [unitName, unitData] of Object.entries(factionData.units)) {
+                if (unitData.type === RTS_UNIT_TYPES.INFANTRY && unitName !== 'ENGINEER') {
+                    return unitName;
+                }
+            }
+        }
+
+        return 'RIFLEMAN';  // Ultimate fallback
+    }
+
+    /**
+     * Select appropriate vehicle unit for faction
+     * @param {Object} factionData - Player's faction data
+     * @returns {string} Vehicle unit name
+     */
+    selectVehicleUnit(factionData) {
+        // All factions have TANK as baseline vehicle
+        if (factionData.units && factionData.units.TANK) {
+            return 'TANK';
+        }
+
+        // Fallback: find first vehicle unit in faction roster
+        if (factionData.units) {
+            for (const [unitName, unitData] of Object.entries(factionData.units)) {
+                if (unitData.type === RTS_UNIT_TYPES.VEHICLE && unitName !== 'HARVESTER') {
+                    return unitName;
+                }
+            }
+        }
+
+        return 'TANK';  // Ultimate fallback
+    }
+
+    /**
+     * Translate generic building type to faction-specific building
+     * @param {string} genericType - 'barracks', 'war_factory', etc.
+     * @returns {string} Faction-specific building name
+     */
+    getFactionBuilding(genericType) {
+        if (!this.player || !this.player.factionData) {
+            return genericType.toUpperCase();
+        }
+
+        const faction = this.player.faction;
+
+        // Map generic building names to faction-specific names
+        const buildingMappings = {
+            'barracks': faction === 'ALLIANCE' ? 'BARRACKS' :
+                       faction === 'SYNDICATE' ? 'HAND_OF_NOD' :
+                       'PORTAL',
+            'war_factory': 'WAR_FACTORY',
+            'power_plant': 'POWER_PLANT',
+            'refinery': 'REFINERY',
+            'guard_tower': 'GUARD_TOWER',
+            'tech_center': 'TECH_CENTER',
+            'silo': 'TIBERIUM_SILO',
+            'construction_yard': 'CONSTRUCTION_YARD',
+            'armory': 'ARMORY',
+            'radar': 'RADAR'
+        };
+
+        const factionBuilding = buildingMappings[genericType.toLowerCase()];
+
+        if (!factionBuilding) {
+            return genericType.toUpperCase();
+        }
+
+        return factionBuilding;
     }
 
     /**
@@ -243,6 +412,12 @@ class AIController {
         this.gameTime += deltaTime;
         this.buildTimer += deltaTime;
         // Note: attackTimer and patrolTimer are managed per-state to avoid conflicts
+
+        // Try to initialize event subscriptions once (Task 8)
+        if (!this._eventsInitialized) {
+            this.initializeEventSubscriptions();
+            this._eventsInitialized = true;
+        }
 
         // Update unit cache periodically
         this.updateUnitCache();
@@ -464,6 +639,9 @@ class AIController {
     tryBuildBuilding(buildingType) {
         if (!Game.instance || !Game.instance.buildingManager) return false;
 
+        // Translate generic building type to faction-specific building
+        const factionBuilding = this.getFactionBuilding(buildingType);
+
         // Check if we can afford it
         const cost = this.getBuildingCost(buildingType);
         if (this.player.resources.tiberium < cost) {
@@ -472,7 +650,7 @@ class AIController {
 
         // Check if building requirements are met
         const buildingManager = Game.instance.buildingManager;
-        if (!buildingManager.meetsRequirements(buildingType, this.player)) {
+        if (!buildingManager.meetsRequirements(factionBuilding, this.player)) {
             return false;
         }
 
@@ -484,7 +662,7 @@ class AIController {
 
         // Build it (placeBuilding handles resource deduction and final validation)
         const success = buildingManager.placeBuilding(
-            buildingType,
+            factionBuilding,
             position.gridX,
             position.gridY,
             this.player
@@ -583,6 +761,9 @@ class AIController {
     tryProduceUnits(unitType, count) {
         if (!Game.instance || !Game.instance.buildingManager) return false;
 
+        // Translate generic unit type to faction-specific unit
+        const factionUnit = this.getFactionUnit(unitType);
+
         const unitCost = this.getUnitCost(unitType);
         const producerType = this.getProducerBuilding(unitType);
 
@@ -596,7 +777,7 @@ class AIController {
         let produced = 0;
         for (let i = 0; i < count; i++) {
             if (this.player.resources.tiberium >= unitCost) {
-                if (this.queueUnit(producer, unitType)) {
+                if (this.queueUnit(producer, factionUnit)) {
                     this.player.resources.tiberium -= unitCost;
                     produced++;
                 }
@@ -684,13 +865,28 @@ class AIController {
 
         const armySize = this.getArmySize();
 
-        // Continue building units
+        // Check for expansion opportunities (Task 2)
+        if (this.gameTime >= this.getExpansionTiming()) {
+            const expansion = this.evaluateExpansionOpportunities();
+            if (expansion) {
+                this.captureExpansion(expansion);
+            }
+        }
+
+        // Continue building units - use counter-unit selection if we know enemies (Task 5)
         if (this.buildTimer >= this.difficultySettings.buildDelay) {
             this.buildTimer = 0;
 
             if (armySize < this.difficultySettings.unitCap) {
-                // Build more units - aim for patrol army size
-                const unitType = this.personality === AI_PERSONALITY.RUSHER ? 'infantry' : 'vehicle';
+                // Get enemy composition and select counter-units (Task 5, 7)
+                const enemyComp = this.getEnemyCompositionForDecision();
+                const counters = this.selectCounterUnits(enemyComp);
+
+                // Pick a counter-unit type to build
+                const unitType = counters.length > 0
+                    ? counters[Math.floor(Math.random() * counters.length)]
+                    : (this.personality === AI_PERSONALITY.RUSHER ? 'infantry' : 'vehicle');
+
                 this.tryProduceUnits(unitType, 1);
             }
         }
@@ -785,6 +981,9 @@ class AIController {
         // Switch all units to AGGRESSIVE stance when attacking
         this.setUnitStance(RTS_UNIT_STANCES.AGGRESSIVE);
 
+        // Check for tactical retreats during combat (Task 4)
+        this.updateRetreatLogic();
+
         // Check if current target is still valid
         if (this.attackTarget && (this.attackTarget.isDead() || !this.attackTarget.active)) {
             this.attackTarget = null;
@@ -792,7 +991,17 @@ class AIController {
 
         // Find attack target
         if (!this.attackTarget) {
-            this.attackTarget = this.findAttackTarget();
+            // Try to find weakest enemy base first (Task 6 - use scouted intel)
+            const weakestBase = this.getWeakestEnemyBase();
+            if (weakestBase) {
+                // Convert position to a target coordinate
+                this.attackTarget = this.findAttackTargetNear(weakestBase.x, weakestBase.y);
+            }
+
+            // Fallback to normal target finding
+            if (!this.attackTarget) {
+                this.attackTarget = this.findAttackTarget();
+            }
 
             if (this.attackTarget) {
                 console.log(`[AI] ${this.personality} found attack target: ${this.attackTarget.type}`);
@@ -831,6 +1040,42 @@ class AIController {
             this.attackTimer = 0;
             this.attackTarget = null;
         }
+    }
+
+    /**
+     * Find attack target near a position (for targeting known enemy bases)
+     * @param {number} x - X position to search near
+     * @param {number} y - Y position to search near
+     * @returns {object|null} Enemy building or unit near position
+     */
+    findAttackTargetNear(x, y) {
+        if (!Game.instance?.buildingManager) return null;
+
+        const searchRadius = 300;
+
+        // Look for visible enemy buildings near position
+        let enemyBuildings = [];
+        if (Game.instance.visibilityManager) {
+            enemyBuildings = Game.instance.visibilityManager.getVisibleBuildings(this.player, Game.instance.buildingManager)
+                .filter(b => !b.isDead() && b.owner !== this.player && this.player.isEnemy(b.owner));
+        } else {
+            enemyBuildings = Game.instance.buildingManager.buildings.filter(b =>
+                !b.isDead() && b.owner !== this.player && this.player.isEnemy(b.owner));
+        }
+
+        // Find nearest to position
+        let nearest = null;
+        let minDist = searchRadius;
+
+        for (const building of enemyBuildings) {
+            const dist = Math.hypot(building.x - x, building.y - y);
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = building;
+            }
+        }
+
+        return nearest;
     }
 
     /**
@@ -1027,25 +1272,11 @@ class AIController {
         // Set units to aggressive when defending
         this.setUnitStance(RTS_UNIT_STANCES.AGGRESSIVE);
 
-        // Rally units to base
-        const basePos = this.player.startPosition || { x: 400, y: 400 };
+        // Use choke point defense if available (Task 3 enhancement)
+        this.defendBase();
 
-        // Use cache if available, otherwise fallback
-        let units;
-        if (this._unitCache && this._unitCache.army) {
-            units = this._unitCache.army.filter(u => !u.isDead());
-        } else {
-            if (!Game.instance || !Game.instance.unitManager) return;
-            units = Game.instance.unitManager.getUnitsByPlayer(this.player)
-                .filter(u => !u.isDead() && u.config?.type?.toUpperCase() !== 'HARVESTER');
-        }
-
-        for (const unit of units) {
-            if (!unit.currentCommand || unit.currentCommand.isComplete) {
-                const cmd = new AttackMoveCommand(unit, basePos.x, basePos.y);
-                unit.issueCommand(cmd);
-            }
-        }
+        // Periodically check for tactical retreats (Task 4)
+        this.updateRetreatLogic();
 
         // Return to previous state if threat cleared
         if (!this.isUnderAttack()) {
@@ -1072,6 +1303,12 @@ class AIController {
         }
 
         if (units.length === 0) return;
+
+        // Prioritize scouting expansion zones (Task 6 enhancement)
+        this.scoutExpansions();
+
+        // Track enemy expansions discovered by scouts
+        this.trackEnemyExpansions();
 
         // Cycle through waypoints
         this.explorationTimer += deltaTime;
@@ -1563,6 +1800,959 @@ class AIController {
             armySize: this.getArmySize(),
             resources: this.player?.resources?.tiberium || 0
         };
+    }
+
+    // ========================================
+    // EXPANSION ZONE CAPTURE (Task 2)
+    // ========================================
+
+    /**
+     * Evaluate expansion opportunities and return best expansion zone
+     * @returns {object|null} Best expansion zone to capture
+     */
+    evaluateExpansionOpportunities() {
+        if (!Game.instance?.expansionZones || Game.instance.expansionZones.length === 0) {
+            return null;
+        }
+
+        const myBase = this.player.startPosition || { x: 400, y: 400 };
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+
+        // Score each expansion zone
+        const scored = Game.instance.expansionZones.map(exp => {
+            // Get pixel position for distance calculation
+            const expPixelX = exp.pixelX || (exp.gridX * cellSize);
+            const expPixelY = exp.pixelY || (exp.gridY * cellSize);
+
+            // Calculate distance score (closer is better, but not too close)
+            const dist = Math.hypot(expPixelX - myBase.x, expPixelY - myBase.y);
+            const optimalRange = 600; // 15-20 cells optimal range
+            const distScore = 1 - Math.abs(dist - optimalRange) / 1000;
+
+            // Check if already claimed
+            const isClaimed = this.claimedExpansions?.has(exp.expansionId);
+            if (isClaimed) return { expansion: exp, score: -1 };
+
+            // Check if contested (enemy units nearby)
+            const contested = this.isExpansionContested(exp) ? 0.5 : 1.0;
+
+            // Tiberium value score
+            const tiberiumValue = (exp.tiberiumField?.density || 50) / 100;
+
+            return {
+                expansion: exp,
+                score: distScore * tiberiumValue * contested
+            };
+        });
+
+        // Filter out invalid and sort by score
+        const valid = scored.filter(s => s.score > 0);
+        valid.sort((a, b) => b.score - a.score);
+
+        return valid[0]?.expansion || null;
+    }
+
+    /**
+     * Check if expansion zone is contested by enemy units
+     * @param {object} expansion - Expansion zone to check
+     * @returns {boolean} True if enemy units nearby
+     */
+    isExpansionContested(expansion) {
+        if (!Game.instance?.unitManager) return false;
+
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+        const expX = expansion.pixelX || (expansion.gridX * cellSize);
+        const expY = expansion.pixelY || (expansion.gridY * cellSize);
+        const checkRadius = 300; // 10 cells
+
+        let enemies = [];
+        if (Game.instance.visibilityManager) {
+            enemies = Game.instance.visibilityManager.getVisibleUnits(this.player, Game.instance.unitManager)
+                .filter(u => !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        } else {
+            enemies = Game.instance.unitManager.units.filter(u =>
+                !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        }
+
+        for (const enemy of enemies) {
+            const dist = Math.hypot(enemy.x - expX, enemy.y - expY);
+            if (dist < checkRadius) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Initiate capture of an expansion zone
+     * @param {object} expansion - Expansion zone to capture
+     */
+    captureExpansion(expansion) {
+        if (!expansion) return;
+
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+        const expX = expansion.pixelX || (expansion.gridX * cellSize);
+        const expY = expansion.pixelY || (expansion.gridY * cellSize);
+
+        console.log(`[AI] ${this.personality} capturing expansion at (${expansion.gridX}, ${expansion.gridY})`);
+
+        // Mark as claimed to prevent re-evaluation
+        if (!this.claimedExpansions) this.claimedExpansions = new Set();
+        this.claimedExpansions.add(expansion.expansionId);
+
+        // Queue Construction Yard at expansion (if we can afford it)
+        const conyardCost = 2500;
+        if (this.player.resources.tiberium >= conyardCost) {
+            // Try to build construction yard at expansion
+            const buildingManager = Game.instance?.buildingManager;
+            if (buildingManager) {
+                const factionBuilding = this.getFactionBuilding('construction_yard');
+                const placed = buildingManager.placeBuilding(
+                    factionBuilding,
+                    expansion.gridX,
+                    expansion.gridY,
+                    this.player
+                );
+
+                if (placed) {
+                    console.log(`[AI] ${this.personality} placed Construction Yard at expansion`);
+                }
+            }
+        }
+
+        // Send guard units to expansion
+        this.sendGuardsToLocation(expX, expY, 3);
+    }
+
+    /**
+     * Send guard units to a location
+     * @param {number} x - Target X position
+     * @param {number} y - Target Y position
+     * @param {number} count - Number of units to send
+     */
+    sendGuardsToLocation(x, y, count) {
+        let army = [];
+        if (this._unitCache?.army) {
+            army = this._unitCache.army.filter(u => !u.isDead());
+        }
+
+        const guards = army.slice(0, count);
+        for (const unit of guards) {
+            if (typeof AttackMoveCommand !== 'undefined') {
+                const cmd = new AttackMoveCommand(unit, x, y);
+                unit.issueCommand(cmd);
+            } else if (typeof MoveCommand !== 'undefined') {
+                const cmd = new MoveCommand(unit, x, y);
+                unit.issueCommand(cmd);
+            }
+        }
+    }
+
+    /**
+     * Get expansion timing based on difficulty
+     * @returns {number} Seconds before AI should attempt expansion
+     */
+    getExpansionTiming() {
+        const timings = {
+            'EASY': 600,    // 10 minutes
+            'NORMAL': 420,  // 7 minutes
+            'HARD': 300,    // 5 minutes
+            'BRUTAL': 180   // 3 minutes
+        };
+        return timings[this.difficulty] || 420;
+    }
+
+    // ========================================
+    // CHOKE POINT DEFENSE (Task 3)
+    // ========================================
+
+    /**
+     * Get nearest choke point to a position
+     * @param {object} position - Position with x, y coordinates
+     * @returns {object|null} Nearest choke point
+     */
+    getNearestChokePoint(position) {
+        if (!Game.instance?.chokePoints || Game.instance.chokePoints.length === 0) {
+            return null;
+        }
+
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+        let nearest = null;
+        let minDist = Infinity;
+
+        for (const choke of Game.instance.chokePoints) {
+            const chokeX = choke.pixelX || (choke.gridX * cellSize);
+            const chokeY = choke.pixelY || (choke.gridY * cellSize);
+            const dist = Math.hypot(chokeX - position.x, chokeY - position.y);
+
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = {
+                    ...choke,
+                    pixelX: chokeX,
+                    pixelY: chokeY
+                };
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Check if a choke point is adequately defended
+     * @param {object} chokePoint - Choke point to check
+     * @returns {boolean} True if defended (>= 3 friendly units)
+     */
+    isChokePointDefended(chokePoint) {
+        if (!chokePoint) return false;
+
+        let army = [];
+        if (this._unitCache?.army) {
+            army = this._unitCache.army.filter(u => !u.isDead());
+        }
+
+        const defendRadius = 150;
+        let unitsAtChoke = 0;
+
+        for (const unit of army) {
+            const dist = Math.hypot(unit.x - chokePoint.pixelX, unit.y - chokePoint.pixelY);
+            if (dist < defendRadius) {
+                unitsAtChoke++;
+            }
+        }
+
+        return unitsAtChoke >= 3;
+    }
+
+    /**
+     * Defend the base using choke points when under attack
+     */
+    defendBase() {
+        const enemyThreat = this.getNearestEnemyThreat();
+        if (!enemyThreat) return;
+
+        const myBase = this.player.startPosition || { x: 400, y: 400 };
+        const chokePoint = this.getNearestChokePoint(myBase);
+
+        // If choke point exists and is between base and enemy, use it
+        if (chokePoint && !this.isChokePointDefended(chokePoint)) {
+            const chokeDistToBase = Math.hypot(chokePoint.pixelX - myBase.x, chokePoint.pixelY - myBase.y);
+            const enemyDistToBase = Math.hypot(enemyThreat.x - myBase.x, enemyThreat.y - myBase.y);
+
+            // Only use choke if it's between us and enemy (closer to enemy than base)
+            if (chokeDistToBase < enemyDistToBase) {
+                console.log(`[AI] ${this.personality} defending choke point at (${chokePoint.gridX}, ${chokePoint.gridY})`);
+                this.moveDefendersToPosition(chokePoint.pixelX, chokePoint.pixelY);
+                return;
+            }
+        }
+
+        // Fallback: defend at base
+        this.moveDefendersToPosition(myBase.x, myBase.y);
+    }
+
+    /**
+     * Move defensive units to a position
+     * @param {number} x - Target X position
+     * @param {number} y - Target Y position
+     */
+    moveDefendersToPosition(x, y) {
+        let army = [];
+        if (this._unitCache?.army) {
+            army = this._unitCache.army.filter(u => !u.isDead());
+        }
+
+        for (const unit of army) {
+            if (!unit.currentCommand || unit.currentCommand.isComplete) {
+                if (typeof AttackMoveCommand !== 'undefined') {
+                    const cmd = new AttackMoveCommand(unit, x, y);
+                    unit.issueCommand(cmd);
+                }
+                // Set stance to hold position at defense point
+                if (typeof RTS_UNIT_STANCES !== 'undefined') {
+                    unit.stance = RTS_UNIT_STANCES.HOLD_POSITION;
+                }
+            }
+        }
+    }
+
+    /**
+     * Get nearest enemy threat to base
+     * @returns {object|null} Nearest enemy unit or building threatening base
+     */
+    getNearestEnemyThreat() {
+        if (!Game.instance?.unitManager) return null;
+
+        const basePos = this.player.startPosition || { x: 400, y: 400 };
+        const threatRange = 500;
+
+        let enemies = [];
+        if (Game.instance.visibilityManager) {
+            enemies = Game.instance.visibilityManager.getVisibleUnits(this.player, Game.instance.unitManager)
+                .filter(u => !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        } else {
+            enemies = Game.instance.unitManager.units.filter(u =>
+                !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        }
+
+        let nearest = null;
+        let minDist = Infinity;
+
+        for (const enemy of enemies) {
+            const dist = Math.hypot(enemy.x - basePos.x, enemy.y - basePos.y);
+            if (dist < threatRange && dist < minDist) {
+                minDist = dist;
+                nearest = enemy;
+            }
+        }
+
+        return nearest;
+    }
+
+    // ========================================
+    // TACTICAL RETREAT (Task 4)
+    // ========================================
+
+    /**
+     * Evaluate combat situation for a unit and decide action
+     * @param {Unit} unit - Unit to evaluate
+     * @returns {string} 'RETREAT', 'HOLD', or 'ADVANCE'
+     */
+    evaluateCombatSituation(unit) {
+        if (!unit || unit.isDead()) return 'HOLD';
+
+        const healthPercent = unit.health / (unit.maxHealth || unit.config?.health || 100);
+        const nearbyEnemies = this.getNearbyEnemies(unit, unit.sightRange || 6);
+        const nearbyAllies = this.getNearbyAllies(unit, 5);
+
+        const retreatThreshold = this.getRetreatThreshold();
+
+        // Critical health and outnumbered = immediate retreat
+        if (healthPercent < 0.3 && nearbyEnemies.length > nearbyAllies.length) {
+            return 'RETREAT';
+        }
+
+        // Below personality-based threshold and significantly outnumbered
+        if (healthPercent < retreatThreshold && nearbyEnemies.length > nearbyAllies.length * 1.5) {
+            return 'RETREAT';
+        }
+
+        // We outnumber enemy - advance
+        if (nearbyAllies.length > nearbyEnemies.length && healthPercent > 0.5) {
+            return 'ADVANCE';
+        }
+
+        return 'HOLD';
+    }
+
+    /**
+     * Execute retreat for a unit
+     * @param {Unit} unit - Unit to retreat
+     */
+    executeRetreat(unit) {
+        if (!unit || unit.isDead()) return;
+
+        const nearestEnemy = this.getNearestEnemy(unit);
+        if (!nearestEnemy) return;
+
+        // Calculate retreat direction (away from enemy)
+        const dx = unit.x - nearestEnemy.x;
+        const dy = unit.y - nearestEnemy.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 1) return; // Avoid division by zero
+
+        const retreatDist = 200; // Pixels to retreat
+        const retreatX = unit.x + (dx / dist) * retreatDist;
+        const retreatY = unit.y + (dy / dist) * retreatDist;
+
+        // Clamp to map bounds
+        const mapWidth = (RTS_GRID?.DEFAULT_COLS || 64) * (RTS_GRID?.CELL_SIZE || 32);
+        const mapHeight = (RTS_GRID?.DEFAULT_ROWS || 64) * (RTS_GRID?.CELL_SIZE || 32);
+        const clampedX = Math.max(50, Math.min(mapWidth - 50, retreatX));
+        const clampedY = Math.max(50, Math.min(mapHeight - 50, retreatY));
+
+        console.log(`[AI] ${this.personality} retreating unit ${unit.id || 'unknown'} from combat`);
+
+        // Issue retreat command with high priority
+        if (typeof MoveCommand !== 'undefined') {
+            const retreatCmd = new MoveCommand(unit, clampedX, clampedY);
+            unit.issueCommand(retreatCmd);
+        }
+
+        // Set defensive stance
+        if (typeof RTS_UNIT_STANCES !== 'undefined') {
+            unit.stance = RTS_UNIT_STANCES.DEFENSIVE;
+        }
+    }
+
+    /**
+     * Get retreat threshold based on personality
+     * @returns {number} Health percentage threshold for retreat (0-1)
+     */
+    getRetreatThreshold() {
+        const thresholds = {
+            'RUSHER': 0.20,     // Aggressive - only retreat at 20%
+            'BALANCED': 0.40,   // Balanced - retreat at 40%
+            'TURTLE': 0.50,     // Cautious - retreat at 50%
+            'ECONOMIST': 0.60   // Preserve units - retreat at 60%
+        };
+        return thresholds[this.personality] || 0.40;
+    }
+
+    /**
+     * Get nearby enemy units within range
+     * @param {Unit} unit - Reference unit
+     * @param {number} range - Range in cells
+     * @returns {Unit[]} Array of nearby enemies
+     */
+    getNearbyEnemies(unit, range) {
+        if (!Game.instance?.unitManager) return [];
+
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+        const checkRadius = range * cellSize;
+
+        let enemies = [];
+        if (Game.instance.visibilityManager) {
+            enemies = Game.instance.visibilityManager.getVisibleUnits(this.player, Game.instance.unitManager)
+                .filter(u => !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        } else {
+            enemies = Game.instance.unitManager.units.filter(u =>
+                !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        }
+
+        return enemies.filter(enemy => {
+            const dist = Math.hypot(enemy.x - unit.x, enemy.y - unit.y);
+            return dist <= checkRadius;
+        });
+    }
+
+    /**
+     * Get nearby allied units within range
+     * @param {Unit} unit - Reference unit
+     * @param {number} range - Range in cells
+     * @returns {Unit[]} Array of nearby allies
+     */
+    getNearbyAllies(unit, range) {
+        if (!Game.instance?.unitManager) return [];
+
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+        const checkRadius = range * cellSize;
+
+        const allies = Game.instance.unitManager.getUnitsByPlayer(this.player)
+            .filter(u => !u.isDead() && u !== unit);
+
+        return allies.filter(ally => {
+            const dist = Math.hypot(ally.x - unit.x, ally.y - unit.y);
+            return dist <= checkRadius;
+        });
+    }
+
+    /**
+     * Get nearest enemy to a unit
+     * @param {Unit} unit - Reference unit
+     * @returns {Unit|null} Nearest enemy unit
+     */
+    getNearestEnemy(unit) {
+        if (!unit) return null;
+
+        let enemies = [];
+        if (Game.instance?.visibilityManager) {
+            enemies = Game.instance.visibilityManager.getVisibleUnits(this.player, Game.instance.unitManager)
+                .filter(u => !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        } else if (Game.instance?.unitManager) {
+            enemies = Game.instance.unitManager.units.filter(u =>
+                !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner));
+        }
+
+        let nearest = null;
+        let minDist = Infinity;
+
+        for (const enemy of enemies) {
+            const dist = Math.hypot(enemy.x - unit.x, enemy.y - unit.y);
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = enemy;
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Update retreat logic for units in combat
+     * Called periodically to check if units should retreat
+     */
+    updateRetreatLogic() {
+        let army = [];
+        if (this._unitCache?.army) {
+            army = this._unitCache.army.filter(u => !u.isDead());
+        }
+
+        for (const unit of army) {
+            // Only check units that are actively in combat
+            if (unit.state === RTS_UNIT_STATES?.ATTACKING || unit.currentCommand?.target) {
+                const decision = this.evaluateCombatSituation(unit);
+                if (decision === 'RETREAT') {
+                    this.executeRetreat(unit);
+                }
+            }
+        }
+    }
+
+    // ========================================
+    // COUNTER-UNIT SELECTION (Task 5)
+    // ========================================
+
+    /**
+     * Analyze enemy army composition from known enemies
+     * @returns {object|null} Composition analysis { infantry, vehicle, aircraft, total }
+     */
+    analyzeEnemyComposition() {
+        const knownEnemies = this.knownEnemyUnits || [];
+        if (knownEnemies.length === 0) return null;
+
+        const composition = {
+            infantry: 0,
+            vehicle: 0,
+            aircraft: 0,
+            total: knownEnemies.length
+        };
+
+        for (const enemy of knownEnemies) {
+            const type = enemy.config?.type?.toUpperCase() || 'INFANTRY';
+            if (type === 'INFANTRY' || type.includes('SOLDIER') || type.includes('TROOPER')) {
+                composition.infantry++;
+            } else if (type === 'VEHICLE' || type.includes('TANK') || type.includes('BUGGY')) {
+                composition.vehicle++;
+            } else if (type === 'AIRCRAFT' || type.includes('ORCA') || type.includes('VENOM')) {
+                composition.aircraft++;
+            } else {
+                composition.infantry++; // Default to infantry
+            }
+        }
+
+        return composition;
+    }
+
+    /**
+     * Select counter-units based on enemy composition
+     * @param {object} composition - Enemy composition analysis
+     * @returns {string[]} Array of recommended unit types
+     */
+    selectCounterUnits(composition) {
+        if (!composition) return this.getPreferredUnits();
+
+        const counters = [];
+        const faction = this.player?.faction || 'ALLIANCE';
+        const total = composition.total || 1;
+
+        // Apply decision quality (difficulty-based)
+        const decisionQuality = this.getDecisionQuality();
+        if (Math.random() > decisionQuality) {
+            // Failed quality check - return random units instead of optimal counters
+            console.log(`[AI] ${this.personality} made suboptimal counter-unit choice (quality: ${(decisionQuality * 100).toFixed(0)}%)`);
+            return this.getRandomFactionUnits();
+        }
+
+        // Counter infantry-heavy armies (> 60% infantry)
+        if (composition.infantry / total > 0.6) {
+            if (faction === 'ALLIANCE') {
+                counters.push('GRENADIER', 'ZONE_TROOPER');
+            } else if (faction === 'SYNDICATE') {
+                counters.push('FLAME_TROOPER', 'FLAME_TANK');
+            } else if (faction === 'COLLECTIVE') {
+                counters.push('DISINTEGRATOR', 'TRIPOD');
+            }
+        }
+
+        // Counter vehicle-heavy armies (> 60% vehicles)
+        if (composition.vehicle / total > 0.6) {
+            if (faction === 'ALLIANCE') {
+                counters.push('ZONE_TROOPER', 'ARTILLERY');
+            } else if (faction === 'SYNDICATE') {
+                counters.push('STEALTH_TANK', 'ATTACK_BUGGY');
+            } else if (faction === 'COLLECTIVE') {
+                counters.push('DEVOURER_TANK', 'TRIPOD');
+            }
+        }
+
+        // Counter aircraft (> 30% aircraft)
+        if (composition.aircraft / total > 0.3) {
+            // All factions need anti-air
+            counters.push('SAM_SITE'); // Building defense
+        }
+
+        // Mixed composition - use balanced units
+        if (counters.length === 0) {
+            return this.getPreferredUnits();
+        }
+
+        console.log(`[AI] ${this.personality} selected counter-units: ${counters.join(', ')} vs enemy composition`);
+        return counters;
+    }
+
+    /**
+     * Get preferred units based on personality (from RTS_AI_WEIGHTS)
+     * @returns {string[]} Array of preferred unit types
+     */
+    getPreferredUnits() {
+        if (typeof RTS_AI_WEIGHTS !== 'undefined' && RTS_AI_WEIGHTS[this.personality]) {
+            return RTS_AI_WEIGHTS[this.personality].preferredUnits || ['RIFLEMAN', 'TANK'];
+        }
+        return ['RIFLEMAN', 'TANK'];
+    }
+
+    /**
+     * Get random faction units (for suboptimal AI decisions)
+     * @returns {string[]} Array of random unit types from faction roster
+     */
+    getRandomFactionUnits() {
+        const factionData = this.player?.factionData;
+        if (!factionData?.units) return ['RIFLEMAN'];
+
+        const unitNames = Object.keys(factionData.units)
+            .filter(name => name !== 'HARVESTER' && name !== 'ENGINEER');
+
+        // Pick 2-3 random units
+        const count = 2 + Math.floor(Math.random() * 2);
+        const selected = [];
+        for (let i = 0; i < count && unitNames.length > 0; i++) {
+            const idx = Math.floor(Math.random() * unitNames.length);
+            selected.push(unitNames[idx]);
+        }
+
+        return selected.length > 0 ? selected : ['RIFLEMAN'];
+    }
+
+    // ========================================
+    // ENEMY EXPANSION TRACKING (Task 6)
+    // ========================================
+
+    /**
+     * Track enemy expansions discovered by scouts
+     */
+    trackEnemyExpansions() {
+        if (!Game.instance?.expansionZones) return;
+
+        // Initialize enemy bases array if needed
+        if (!this.knownEnemyBases) this.knownEnemyBases = [];
+
+        for (const expansion of Game.instance.expansionZones) {
+            const cellSize = RTS_GRID?.CELL_SIZE || 32;
+            const expX = expansion.pixelX || (expansion.gridX * cellSize);
+            const expY = expansion.pixelY || (expansion.gridY * cellSize);
+
+            const enemyBuildings = this.findEnemyBuildingsNear(expX, expY, 5);
+            if (enemyBuildings.length > 0) {
+                // Check if already known
+                const alreadyKnown = this.knownEnemyBases.some(b =>
+                    Math.abs(b.x - expX) < 100 && Math.abs(b.y - expY) < 100
+                );
+
+                if (!alreadyKnown) {
+                    console.log(`[AI] ${this.personality} discovered enemy expansion at (${expansion.gridX}, ${expansion.gridY})`);
+                    this.knownEnemyBases.push({
+                        x: expX,
+                        y: expY,
+                        isExpansion: true,
+                        buildings: enemyBuildings,
+                        discoveredAt: this.gameTime
+                    });
+                }
+            }
+        }
+    }
+
+    /**
+     * Find enemy buildings near a position
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {number} cellRange - Range in cells
+     * @returns {Building[]} Array of enemy buildings
+     */
+    findEnemyBuildingsNear(x, y, cellRange) {
+        if (!Game.instance?.buildingManager) return [];
+
+        const cellSize = RTS_GRID?.CELL_SIZE || 32;
+        const checkRadius = cellRange * cellSize;
+
+        let enemyBuildings = [];
+        if (Game.instance.visibilityManager) {
+            enemyBuildings = Game.instance.visibilityManager.getVisibleBuildings(this.player, Game.instance.buildingManager)
+                .filter(b => !b.isDead() && b.owner !== this.player && this.player.isEnemy(b.owner));
+        } else {
+            enemyBuildings = Game.instance.buildingManager.buildings.filter(b =>
+                !b.isDead() && b.owner !== this.player && this.player.isEnemy(b.owner));
+        }
+
+        return enemyBuildings.filter(building => {
+            const dist = Math.hypot(building.x - x, building.y - y);
+            return dist <= checkRadius;
+        });
+    }
+
+    /**
+     * Check if an expansion zone has been scouted
+     * @param {object} expansion - Expansion zone to check
+     * @returns {boolean} True if scouted
+     */
+    isExpansionScouted(expansion) {
+        if (!this.player?.exploredCells) return false;
+
+        const cellKey = `${expansion.gridX},${expansion.gridY}`;
+        return this.player.exploredCells.has(cellKey);
+    }
+
+    /**
+     * Enhanced scouting that prioritizes expansion zones
+     */
+    scoutExpansions() {
+        if (!Game.instance?.expansionZones) return;
+
+        // Find unscounted expansion zones
+        for (const expansion of Game.instance.expansionZones) {
+            if (!this.isExpansionScouted(expansion)) {
+                const cellSize = RTS_GRID?.CELL_SIZE || 32;
+                const expX = expansion.pixelX || (expansion.gridX * cellSize);
+                const expY = expansion.pixelY || (expansion.gridY * cellSize);
+
+                this.sendScoutToLocation(expX, expY);
+                return; // Send one scout at a time
+            }
+        }
+    }
+
+    /**
+     * Send a scout unit to a location
+     * @param {number} x - Target X position
+     * @param {number} y - Target Y position
+     */
+    sendScoutToLocation(x, y) {
+        let army = [];
+        if (this._unitCache?.army) {
+            army = this._unitCache.army.filter(u => !u.isDead());
+        }
+
+        // Find fastest unit to use as scout
+        const scout = army.find(u => u.config?.speed >= 2.5) || army[0];
+        if (!scout) return;
+
+        console.log(`[AI] ${this.personality} sending scout to (${x.toFixed(0)}, ${y.toFixed(0)})`);
+
+        if (typeof MoveCommand !== 'undefined') {
+            const cmd = new MoveCommand(scout, x, y);
+            scout.issueCommand(cmd);
+        }
+    }
+
+    /**
+     * Get weakest enemy base for attack targeting
+     * @returns {object|null} Weakest enemy base (expansion or main)
+     */
+    getWeakestEnemyBase() {
+        if (!this.knownEnemyBases || this.knownEnemyBases.length === 0) {
+            return null;
+        }
+
+        // Sort by building count (fewest = weakest)
+        const sorted = [...this.knownEnemyBases].sort((a, b) =>
+            (a.buildings?.length || 0) - (b.buildings?.length || 0)
+        );
+
+        // Prefer expansions over main base
+        const expansion = sorted.find(b => b.isExpansion);
+        return expansion || sorted[0];
+    }
+
+    // ========================================
+    // DIFFICULTY-SCALED DECISIONS (Task 7)
+    // ========================================
+
+    /**
+     * Get decision quality based on difficulty
+     * @returns {number} Quality factor (0-1) where 1 = always optimal
+     */
+    getDecisionQuality() {
+        const qualities = {
+            'EASY': 0.40,    // 40% chance to make optimal choice
+            'NORMAL': 0.70,  // 70% chance
+            'HARD': 0.90,    // 90% chance
+            'BRUTAL': 1.00   // 100% - always optimal
+        };
+        return qualities[this.difficulty] || 0.70;
+    }
+
+    /**
+     * Check if AI can "cheat" and see through fog of war (BRUTAL only)
+     * @returns {boolean} True if AI has map hacks
+     */
+    hasMapHacks() {
+        return this.difficulty === 'BRUTAL' && this.difficultySettings?.cheats === true;
+    }
+
+    /**
+     * Get enemy composition (with cheating for BRUTAL)
+     * @returns {object|null} Enemy composition
+     */
+    getEnemyCompositionForDecision() {
+        // BRUTAL difficulty can see all enemies
+        if (this.hasMapHacks()) {
+            return this.analyzeAllEnemyUnits();
+        }
+
+        // Other difficulties only know about scouted enemies
+        return this.analyzeEnemyComposition();
+    }
+
+    /**
+     * Analyze ALL enemy units (cheat mode for BRUTAL)
+     * @returns {object|null} Full enemy composition
+     */
+    analyzeAllEnemyUnits() {
+        if (!Game.instance?.unitManager) return null;
+
+        const allEnemies = Game.instance.unitManager.units.filter(u =>
+            !u.isDead() && u.owner !== this.player && this.player.isEnemy(u.owner)
+        );
+
+        if (allEnemies.length === 0) return null;
+
+        const composition = {
+            infantry: 0,
+            vehicle: 0,
+            aircraft: 0,
+            total: allEnemies.length
+        };
+
+        for (const enemy of allEnemies) {
+            const type = enemy.config?.type?.toUpperCase() || 'INFANTRY';
+            if (type === 'INFANTRY') composition.infantry++;
+            else if (type === 'VEHICLE') composition.vehicle++;
+            else if (type === 'AIRCRAFT') composition.aircraft++;
+            else composition.infantry++;
+        }
+
+        return composition;
+    }
+
+    // ========================================
+    // EVENT SYSTEM INTEGRATION (Task 8)
+    // ========================================
+
+    /**
+     * Subscribe to game events for event-driven updates
+     * Call this after Game.instance is available
+     */
+    subscribeToEvents() {
+        if (!Game.instance?.eventManager) {
+            console.warn('[AI] Event manager not available, using polling fallback');
+            return;
+        }
+
+        this.eventManager = Game.instance.eventManager;
+
+        // Bind event handlers (preserve 'this' context)
+        this._onEnemyRevealed = this.onEnemyRevealed.bind(this);
+        this._onBuildingDestroyed = this.onBuildingDestroyed.bind(this);
+        this._onUnitCreated = this.onUnitCreated.bind(this);
+        this._onTiberiumDepleted = this.onTiberiumDepleted.bind(this);
+
+        // Subscribe to relevant events
+        this.eventManager.on('ENEMY_REVEALED', this._onEnemyRevealed);
+        this.eventManager.on('BUILDING_DESTROYED', this._onBuildingDestroyed);
+        this.eventManager.on('UNIT_CREATED', this._onUnitCreated);
+        this.eventManager.on('TIBERIUM_DEPLETED', this._onTiberiumDepleted);
+
+        console.log(`[AI] ${this.personality} subscribed to game events`);
+    }
+
+    /**
+     * Unsubscribe from events (call in destroy())
+     */
+    unsubscribeFromEvents() {
+        if (!this.eventManager) return;
+
+        this.eventManager.off('ENEMY_REVEALED', this._onEnemyRevealed);
+        this.eventManager.off('BUILDING_DESTROYED', this._onBuildingDestroyed);
+        this.eventManager.off('UNIT_CREATED', this._onUnitCreated);
+        this.eventManager.off('TIBERIUM_DEPLETED', this._onTiberiumDepleted);
+
+        console.log(`[AI] ${this.personality} unsubscribed from game events`);
+    }
+
+    /**
+     * Event handler: Enemy unit or building revealed
+     * @param {object} data - Event data { enemy, discoveredBy }
+     */
+    onEnemyRevealed(data) {
+        if (data.discoveredBy !== this.player) return;
+
+        const enemy = data.enemy;
+        if (!enemy) return;
+
+        // Track revealed enemy
+        if (enemy.type && typeof enemy.type === 'string') {
+            // It's a building
+            if (!this.knownEnemyBuildings.includes(enemy)) {
+                this.knownEnemyBuildings.push(enemy);
+                console.log(`[AI] ${this.personality} discovered enemy building: ${enemy.type}`);
+            }
+        } else {
+            // It's a unit
+            if (!this.knownEnemyUnits.includes(enemy)) {
+                this.knownEnemyUnits.push(enemy);
+            }
+        }
+    }
+
+    /**
+     * Event handler: Building destroyed
+     * @param {object} data - Event data { building, destroyer }
+     */
+    onBuildingDestroyed(data) {
+        const building = data.building;
+        if (!building) return;
+
+        // Remove from known enemies if it was tracked
+        const idx = this.knownEnemyBuildings.indexOf(building);
+        if (idx !== -1) {
+            this.knownEnemyBuildings.splice(idx, 1);
+        }
+
+        // Update known enemy bases
+        if (this.knownEnemyBases) {
+            for (const base of this.knownEnemyBases) {
+                if (base.buildings) {
+                    const buildingIdx = base.buildings.indexOf(building);
+                    if (buildingIdx !== -1) {
+                        base.buildings.splice(buildingIdx, 1);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Event handler: Unit created
+     * @param {object} data - Event data { unit, owner }
+     */
+    onUnitCreated(data) {
+        if (data.owner !== this.player) return;
+
+        // Invalidate unit cache to force refresh
+        if (this._unitCache) {
+            this._unitCache.lastUpdate = 0;
+        }
+    }
+
+    /**
+     * Event handler: Tiberium field depleted
+     * @param {object} data - Event data { field, position }
+     */
+    onTiberiumDepleted(data) {
+        // Signal harvesters to find new tiberium
+        // This will be handled by manageHarvesters() on next update
+        console.log(`[AI] ${this.personality} tiberium depleted at (${data.position?.x}, ${data.position?.y})`);
     }
 
     // ========================================
