@@ -147,7 +147,6 @@ class Game {
             mapSize.rows,
             mapSize.cols,
             gridConfig.CELL_SIZE,
-            1, // levelId (not used in RTS)
             { isRTSMode: true, skipTrees: true } // RTS options
         );
 
@@ -350,7 +349,7 @@ class Game {
 
         for (const player of this.players) {
             if (!player.isHuman) {
-                const aiController = AIController.Builder.create()
+                const aiController = new AIController()
                     .forPlayer(player)
                     .withPersonality(player.aiPersonality || this.rtsSettings.aiPersonality || 'BALANCED')
                     .withDifficulty(player.aiDifficulty || this.rtsSettings.difficulty || 'NORMAL')

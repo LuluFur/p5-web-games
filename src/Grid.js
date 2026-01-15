@@ -13,13 +13,8 @@ class Grid {
         // NEW: Terrain array (separate from buildability map)
         this.terrain = [];
 
-        // Middle-Out logic
-        // Start with 3 rows in the middle unlocked (easier tutorial)
-        let mid = Math.floor(this.rows / 2);
-        this.unlockStart = mid - 1; // e.g. 4-1 = 3
-        this.unlockEnd = mid + 1;   // e.g. 4+1 = 5 (Inclusive: Rows 3, 4, 5)
-
-        this.expandTopNext = true; // Toggle
+        // Grid initialization
+        const mid = Math.floor(this.rows / 2);
 
         // Visual feedback for invalid placement
         this.invalidTile = null; // {row, col, frame} - tile that flashes red
@@ -44,13 +39,7 @@ class Grid {
             this.terrain[r] = []; // NEW: Initialize terrain array
             for (let c = 0; c < this.cols; c++) {
                 // RTS mode: all cells are playable
-                if (this.isRTSMode) {
-                    this.map[r][c] = 0; // All playable
-                } else if (r >= this.unlockStart && r <= this.unlockEnd) {
-                    this.map[r][c] = 0; // Playable
-                } else {
-                    this.map[r][c] = 2; // Water (Locked)
-                }
+                this.map[r][c] = 0; // All playable
 
                 // NEW: Initialize all terrain as GRASS by default
                 this.terrain[r][c] = TERRAIN_TYPES.GRASS;
@@ -68,324 +57,7 @@ class Grid {
             this.initializeFogTrees();
         }
 
-        console.log(`Grid: Initialized. Unlocked Rows: ${this.unlockStart} to ${this.unlockEnd}`);
-    }
-
-    draw() {
-        stroke(50);
-        strokeWeight(1);
-
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                let x = c * this.cellSize;
-                let y = r * this.cellSize;
-                let cell = this.map[r][c];
-
-                // Check if this is the invalid tile (flash red)
-                let isInvalidTile = this.invalidTile &&
-                    this.invalidTile.row === r &&
-                    this.invalidTile.col === c &&
-                    (frameCount - this.invalidTileFrame) < 20; // Flash for 20 frames
-
-                // NEW: Check terrain type FIRST
-                const terrainType = this.terrain[r][c];
-
-                // 1. Draw Terrain - CLIFF BARRIERS
-                if (terrainType === TERRAIN_TYPES.CLIFF) {
-                    // Draw cliff as gray stone barrier
-                    if (isInvalidTile) {
-                        // Flash red when clicked
-                        let flashAlpha = map(frameCount - this.invalidTileFrame, 0, 20, 200, 0);
-                        fill(255, 50, 50, flashAlpha);
-                    } else {
-                        // Gray stone base
-                        fill(TERRAIN_COLORS[TERRAIN_TYPES.CLIFF]);
-                    }
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Add cliff visual effects (rocky texture)
-                    if (!isInvalidTile) {
-                        noStroke();
-                        // Darker shading for 3D effect
-                        fill(0, 0, 0, 70);
-                        triangle(x, y, x + this.cellSize, y, x, y + this.cellSize);
-
-                        // Highlight edge
-                        fill(150, 150, 150, 100);
-                        triangle(x + this.cellSize, y + this.cellSize,
-                            x + this.cellSize, y,
-                            x, y + this.cellSize);
-
-                        stroke(50); // Reset stroke
-                    }
-                }
-                // 2. Draw Terrain - MARSH
-                else if (terrainType === TERRAIN_TYPES.MARSH) {
-                    fill(TERRAIN_COLORS[TERRAIN_TYPES.MARSH]);
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Add marsh visual effects (darker spots)
-                    noStroke();
-                    fill(0, 0, 0, 50);
-                    ellipse(x + 15, y + 15, 12);
-                    ellipse(x + 45, y + 35, 15);
-                    ellipse(x + 30, y + 50, 10);
-                    stroke(50); // Reset stroke
-                }
-                // 3. Draw Terrain - MUD
-                else if (terrainType === TERRAIN_TYPES.MUD) {
-                    fill(TERRAIN_COLORS[TERRAIN_TYPES.MUD]);
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Add mud visual effects (very dark wet spots)
-                    noStroke();
-                    fill(0, 0, 0, 80);
-                    ellipse(x + 20, y + 20, 18);
-                    ellipse(x + 40, y + 40, 20);
-                    ellipse(x + 25, y + 45, 14);
-                    stroke(50); // Reset stroke
-                }
-                // 4. Draw Terrain - STONE
-                else if (terrainType === TERRAIN_TYPES.STONE) {
-                    fill(TERRAIN_COLORS[TERRAIN_TYPES.STONE]);
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Add stone visual effects (lighter highlights)
-                    noStroke();
-                    fill(255, 255, 255, 60);
-                    rect(x + 5, y + 5, 20, 10);
-                    rect(x + 35, y + 30, 15, 8);
-                    rect(x + 15, y + 45, 18, 12);
-                    stroke(50); // Reset stroke
-                }
-                // 5. Draw Terrain - SAND
-                else if (terrainType === TERRAIN_TYPES.SAND) {
-                    fill(TERRAIN_COLORS[TERRAIN_TYPES.SAND]);
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Add sand visual effects (lighter grains)
-                    noStroke();
-                    fill(255, 255, 255, 40);
-                    ellipse(x + 10, y + 10, 8);
-                    ellipse(x + 50, y + 20, 10);
-                    ellipse(x + 30, y + 45, 9);
-                    ellipse(x + 45, y + 50, 7);
-                    stroke(50); // Reset stroke
-                }
-                // 6. Draw Terrain - WATER (Level 2)
-                else if (terrainType === TERRAIN_TYPES.WATER) {
-                    fill(TERRAIN_COLORS[TERRAIN_TYPES.WATER]);
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Animated ripples (using frame count for simple animation)
-                    noStroke();
-                    let ripplePhase = (frameCount * 0.05 + r + c) % TWO_PI;
-                    let rippleAlpha = (sin(ripplePhase) + 1) * 30 + 40; // 40-100 alpha
-                    fill(106, 179, 196, rippleAlpha); // Lighter blue-green
-                    ellipse(x + 15, y + 15, 18);
-                    ellipse(x + 45, y + 35, 22);
-                    ellipse(x + 28, y + 48, 16);
-                    stroke(50); // Reset stroke
-                }
-                // 7. Draw Terrain - ICE (Level 4)
-                else if (terrainType === TERRAIN_TYPES.ICE) {
-                    fill(TERRAIN_COLORS[TERRAIN_TYPES.ICE]);
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Ice sparkles (crystalline effect)
-                    noStroke();
-                    fill(255, 255, 255, 180);
-                    // Static sparkles at fixed positions
-                    ellipse(x + 12, y + 18, 4);
-                    ellipse(x + 38, y + 25, 5);
-                    ellipse(x + 50, y + 42, 3);
-                    ellipse(x + 22, y + 50, 4);
-                    // Pulsing sparkle
-                    if (frameCount % 60 < 30) {
-                        ellipse(x + 32, y + 32, 6);
-                    }
-                    stroke(50); // Reset stroke
-                }
-                // 8. Draw Terrain - LAVA (Level 5)
-                else if (terrainType === TERRAIN_TYPES.LAVA) {
-                    fill(TERRAIN_COLORS[TERRAIN_TYPES.LAVA]);
-                    rect(x, y, this.cellSize, this.cellSize);
-
-                    // Bubbling lava animation
-                    noStroke();
-                    let bubblePhase = (frameCount * 0.08 + r * 3 + c * 2) % TWO_PI;
-                    let bubbleSize = (sin(bubblePhase) + 1) * 4 + 8; // 8-16 size
-                    // Golden-yellow bubbles
-                    fill(255, 215, 0, 200);
-                    ellipse(x + 18, y + 22, bubbleSize);
-                    ellipse(x + 42, y + 38, bubbleSize + 2);
-                    // Orange glow spots
-                    fill(255, 140, 0, 150);
-                    ellipse(x + 30, y + 15, 14);
-                    ellipse(x + 48, y + 50, 12);
-                    stroke(50); // Reset stroke
-                }
-                // GRASS/TERRAIN ZONES
-                else {
-                    if (isInvalidTile) {
-                        let flashAlpha = map(frameCount - this.invalidTileFrame, 0, 20, 200, 0);
-                        fill(255, 50, 50, flashAlpha);
-                    } else if (this.isRTSMode && this.surfaceMap && this.surfaceMap[r] && this.surfaceMap[r][c]) {
-                        // RTS Mode: Use MapGenerator's surface map (desert terrain)
-                        const surface = this.surfaceMap[r][c];
-                        fill(surface.color.r, surface.color.g, surface.color.b);
-                    } else if (this.isRTSMode) {
-                        // RTS Mode fallback: Desert sand
-                        const sandVar = ((r + c) % 2 === 0) ? 0 : 10;
-                        fill(210 + sandVar, 180 + sandVar, 140 + sandVar);
-                    } else {
-                        // Tower Defense Mode: Green grass (no spawn/base zones)
-                        if ((r + c) % 2 === 0) fill(34, 139, 34);
-                        else fill(50, 205, 50);
-                    }
-                    rect(x, y, this.cellSize, this.cellSize);
-                }
-
-                // 2. Wall/Blocked Tiles (NOT Towers - those are drawn separately)
-                if (cell === 1) {
-                    fill(100);
-                    rect(x, y, this.cellSize, this.cellSize);
-                }
-                // Note: Towers (cell instanceof Tower) are drawn by Game.drawPlay() for proper layering
-            }
-        }
-
-        // NEW: Draw fog of war overlay for locked rows
-        this.drawFogOfWar();
-
-        // NEW: Draw machine trees on fog tiles
-        this.drawTrees();
-
-        // Draw unlock animation overlay
-        this.drawUnlockAnimation();
-    }
-
-    /**
-     * Set surface map from MapGenerator for terrain rendering
-     * @param {Array} surfaceMap 2D array of surface data
-     */
-    setSurfaceMap(surfaceMap) {
-        this.surfaceMap = surfaceMap;
-
-        // Update blocked cells based on surface type
-        if (surfaceMap) {
-            for (let r = 0; r < this.rows && r < surfaceMap.length; r++) {
-                for (let c = 0; c < this.cols && c < surfaceMap[r].length; c++) {
-                    const surface = surfaceMap[r][c];
-                    if (surface && surface.blocked) {
-                        this.map[r][c] = 2;  // Mark as water/blocked
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Set cell properties (used by MapGenerator)
-     * @param {number} row
-     * @param {number} col
-     * @param {Object} properties
-     */
-    setCell(row, col, properties) {
-        if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
-
-        if (properties.blocked) {
-            this.map[row][col] = 2;  // Water/blocked
-        }
-        if (properties.terrainType) {
-            this.terrain[row][col] = properties.terrainType;
-        }
-        if (properties.hasTiberium) {
-            // Store tiberium data in terrain or a separate array
-            if (!this.tiberiumData) this.tiberiumData = [];
-            if (!this.tiberiumData[row]) this.tiberiumData[row] = [];
-            this.tiberiumData[row][col] = {
-                amount: properties.tiberiumAmount || 500,
-                type: properties.tiberiumType || 'green'
-            };
-        }
-    }
-
-    placeTower(row, col, towerData) {
-        if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return false;
-
-        // No-Man's Land Check (only for Tower Defense mode)
-        if (!this.isRTSMode && (col < 3 || col >= this.cols - 3)) {
-            console.log("Cannot build in No-Man's Land!");
-            this.flashInvalidTile(row, col);
-            return false;
-        }
-
-        // Locked / Water Check
-        if (this.map[row][col] === 2) {
-            console.log("Cannot build on Water!");
-            this.flashInvalidTile(row, col);
-            return false;
-        }
-
-        // NEW: Terrain Check - Check if terrain allows building
-        const terrainType = this.getTerrainType(row, col);
-        const terrainProps = TERRAIN_PROPERTIES[terrainType];
-
-        if (!terrainProps.buildable) {
-            console.log(`Cannot build on ${terrainProps.name}!`);
-            this.flashInvalidTile(row, col);
-            return false;
-        }
-
-        // Empty tile - place tower
-        if (this.map[row][col] === 0) {
-            this.map[row][col] = towerData;
-            return true;
-        }
-        // Existing tower - remove it (for editing)
-        else if (this.map[row][col] instanceof Tower) {
-            this.map[row][col] = 0;
-            return true;
-        }
-        // Occupied by something else (wall, etc.)
-        else {
-            console.log("Tile is occupied!");
-            this.flashInvalidTile(row, col);
-            return false;
-        }
-    }
-
-    // Trigger visual feedback for invalid placement
-    flashInvalidTile(row, col) {
-        this.invalidTile = { row: row, col: col };
-        this.invalidTileFrame = frameCount;
-
-        // Trigger screen flash effect (red borders)
-        if (Game.instance && Game.instance.screenEffectRenderer) {
-            Game.instance.screenEffectRenderer.triggerFlash(color(255, 50, 50, 30), 4);
-        }
-
-        // Play error sound if available
-        if (window.Sounds) {
-            window.Sounds.play('error');
-        }
-    }
-
-    toggleWall(row, col) {
-        // ... (Optional, mostly used for debug) ...
-        return false;
-    }
-
-    /**
-     * Check if grid expansion is still possible
-     * @returns {boolean} True if more rows can be unlocked
-     */
-    canExpand() {
-        // Can expand if we haven't reached both boundaries
-        // Keep row 0 and last row as water boundaries
-        const canExpandTop = this.unlockStart > 1;
-        const canExpandBottom = this.unlockEnd < this.rows - 2;
+        console.log(`Grid: Initialized. Rows: ${this.rows}`);
         return canExpandTop || canExpandBottom;
     }
 
@@ -395,18 +67,7 @@ class Grid {
 
         if (this.expandTopNext) {
             // Try Top (keep row 0 as water boundary)
-            if (this.unlockStart > 1) {
-                this.unlockStart--;
-                unlockedRow = this.unlockStart;
-                this.unlockRow(this.unlockStart);
-                expanded = true;
-            } else if (this.unlockEnd < this.rows - 2) {
-                // Top boundary reached, force Bottom
-                this.unlockEnd++;
-                unlockedRow = this.unlockEnd;
-                this.unlockRow(this.unlockEnd);
-                expanded = true;
-            }
+            // Remove old unlock logic - not needed
         } else {
             // Try Bottom (keep last row as water boundary)
             if (this.unlockEnd < this.rows - 2) {
@@ -425,18 +86,9 @@ class Grid {
 
         if (expanded) {
             this.expandTopNext = !this.expandTopNext; // Toggle for next time
-            console.log(`Grid Expanded: Rows ${this.unlockStart}-${this.unlockEnd}`);
-
-            // Trigger unlock animation
-            this.triggerUnlockEffect(unlockedRow);
-
-            return true;
+            return false;
         }
-        return false;
     }
-
-    unlockRow(r) {
-        for (let c = 0; c < this.cols; c++) {
             if (this.map[r][c] === 2) {
                 this.map[r][c] = 0;
             }
@@ -450,74 +102,7 @@ class Grid {
         this.cutTreesInRow(r);
 
         // Increment unlock counter
-        this.unlockedRowCount++;
-    }
-
-    /**
-     * Add procedurally generated cliff clusters to a newly unlocked row.
-     * Uses Perlin noise for natural-looking terrain patterns with progressive difficulty.
-     *
-     * Difficulty Progression:
-     * - First 2 unlocks (rows 1-2): Very sparse cliffs (threshold 0.80 = ~20% coverage)
-     * - Every 2 subsequent unlocks: Threshold decreases by 0.05
-     * - Example: Unlocks 3-4 → 0.75, Unlocks 5-6 → 0.70, Unlocks 7-8 → 0.65
-     * - Caps at 0.50 threshold (maximum 50% cliff coverage)
-     *
-     * How it works:
-     * 1. Samples Perlin noise for each cell in the playable area (cols 3 to cols-3)
-     * 2. If noise value > threshold, places a cliff at that cell
-     * 3. Lower threshold = more cliffs (since more cells exceed threshold)
-     *
-     * Why unlocksSinceStart - 2?
-     * - First 2 middle rows are unlocked at game start
-     * - We don't count them in the progression
-     * - Ensures balanced difficulty curve
-     *
-     * Why divide by 2 for unlockPair?
-     * - Grid unlocks symmetrically (top row, then bottom row)
-     * - Both rows in a pair should have identical cliff density
-     * - unlockPair groups them: pair 0 = unlocks 1-2, pair 1 = unlocks 3-4, etc.
-     *
-     * @param {number} row - Row index to add cliffs to (0-indexed)
-     *
-     * @example
-     * // Unlock #3 (unlocksSinceStart = 1)
-     * unlockPair = Math.floor(1 / 2) = 0
-     * threshold = 0.80 - (0 * 0.05) = 0.80 (20% cliffs)
-     *
-     * // Unlock #5 (unlocksSinceStart = 3)
-     * unlockPair = Math.floor(3 / 2) = 1
-     * threshold = 0.80 - (1 * 0.05) = 0.75 (25% cliffs)
-     */
-    addCliffClusters(row) {
-        // Only add cliffs to playable area (skip spawn/base zones)
-        const startCol = 3; // After spawn zone
-        const endCol = this.cols - 3; // Before base zone
-
-        // Progressive difficulty: threshold decreases every 2 unlocks
-        // This way top and bottom rows unlocked in each cycle have equal cliff density
-        // Note: p5.js noise() returns 0-1, not -1 to 1
-
-        // Calculate which "pair" of unlocks we're in
-        // Start counting from unlock #3 (first 2 middle rows don't get cliffs initially)
-        const unlocksSinceStart = this.unlockedRowCount - 2; // Subtract initial 2 rows
-        const unlockPair = Math.floor(unlocksSinceStart / 2); // Pair number (0, 1, 2, ...)
-
-        // Threshold progression
-        const baseThreshold = TERRAIN_GENERATION.CLIFF_BASE_THRESHOLD;        // Very sparse for first 2 unlocks (unlocks 1-2)
-        const thresholdDecrement = TERRAIN_GENERATION.CLIFF_THRESHOLD_DECREMENT;   // Decrease by 5% every 2 unlocks
-        const minThreshold = TERRAIN_GENERATION.CLIFF_MIN_THRESHOLD;         // Cap at 50% (50% cliff coverage max)
-
-        const threshold = Math.max(
-            minThreshold,
-            baseThreshold - (unlockPair * thresholdDecrement)
-        );
-
-        // Perlin noise parameters
-        const noiseScale = TERRAIN_GENERATION.CLIFF_NOISE_SCALE; // Lower = larger clusters, Higher = smaller clusters
-        const noiseOffsetY = this.cliffNoiseSeed; // Random offset for each game
-
-        let cliffCount = 0;
+        // No unlock logic needed
 
         for (let col = startCol; col < endCol; col++) {
             // IMPORTANT: Only replace GRASS tiles (don't overwrite water/ice/lava)
@@ -1508,11 +1093,5 @@ if (typeof window !== 'undefined') {
         });
     };
 
-    console.log('%c[Terrain System] Test command available: testLevelTerrain(levelId)', 'color: #00ff00; font-weight: bold');
-    console.log('  Examples:');
-    console.log('    testLevelTerrain(1) - Grasslands');
-    console.log('    testLevelTerrain(2) - Marshlands (water patches)');
-    console.log('    testLevelTerrain(3) - Mountain Pass');
-    console.log('    testLevelTerrain(4) - Frozen Wastes (ice patches)');
-    console.log('    testLevelTerrain(5) - Volcanic Crater (lava rivers)');
+
 }
