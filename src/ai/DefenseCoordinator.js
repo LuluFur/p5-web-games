@@ -86,9 +86,15 @@ class DefenseCoordinator {
             building.type
         );
 
-        // Queue defense construction
+        // Queue defense construction with position validation
         for (let i = 0; i < defensePositions.length; i++) {
             const position = defensePositions[i];
+            
+            // Check if position is actually buildable
+            if (!this.isValidDefensePosition(position)) {
+                continue;
+            }
+            
             const defenseType = this.selectDefenseType(defenseConfig, this.getEnemyComposition());
 
             this.ai.priorityQueue.push({
@@ -274,9 +280,33 @@ class DefenseCoordinator {
      * Get current enemy composition
      */
     getEnemyComposition() {
-        // This would analyze enemy units to determine composition
-        // For now, return null to use defaults
-        return null;
+        // Return enemy composition from AI controller if available
+        return this.ai.enemyComposition || {
+            infantry: 0,
+            vehicles: 0,
+            aircraft: 0,
+            total: 0
+        };
+    }
+
+    /**
+     * Check if defense position is valid (buildable and doesn't block paths)
+     */
+    isValidDefensePosition(position) {
+        if (!this.game || !this.game.grid) return false;
+        
+        // Check basic validity
+        if (position.gridX < 0 || position.gridX >= this.game.grid.cols ||
+            position.gridY < 0 || position.gridY >= this.game.grid.rows) {
+            return false;
+        }
+        
+        // Check if position is blocked
+        if (this.game.grid.isObstacle(position.gridX, position.gridY)) {
+            return false;
+        }
+        
+        return true;
     }
 
     /**

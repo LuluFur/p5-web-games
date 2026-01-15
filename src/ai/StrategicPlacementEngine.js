@@ -36,6 +36,14 @@ class StrategicPlacementEngine {
             repair_bay: this.PLACEMENT_MODE.NEUTRAL
         };
 
+        // Minimum spread distances for different building types
+        this.MIN_SPREAD_DISTANCE = {
+            power_plant: 8,    // Keep power plants separated for reliability
+            refinery: 10,       // Spread refineries for resource coverage
+            silo: 6,          // Tiberium silos can be closer
+            tiberium_silo: 6
+        };
+
         // Similar infrastructure groups for spread calculations
         this.INFRASTRUCTURE_GROUPS = {
             power: ['power_plant'],
@@ -92,15 +100,22 @@ class StrategicPlacementEngine {
         let bestPosition = null;
         let bestScore = -Infinity;
 
+        const minDistance = this.MIN_SPREAD_DISTANCE[buildingType] || 5;
+
         for (const candidate of candidatePositions) {
-            const minDistance = Math.min(
+            const minDistToSimilar = Math.min(
                 ...similarBuildings.map(b => 
                     this.gridDistance(candidate, b.position)
                 )
             );
             
-            // Prefer positions that maximize minimum distance
-            const score = minDistance;
+            // Reject positions that don't meet minimum spread distance
+            if (minDistToSimilar < minDistance) {
+                continue;
+            }
+            
+            // Prefer positions that maximize distance from similar buildings
+            const score = minDistToSimilar;
             
             // Apply slight randomness to avoid predictable patterns
             const randomFactor = Math.random() * 0.1;

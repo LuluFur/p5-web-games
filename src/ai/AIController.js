@@ -122,6 +122,19 @@ class AIController {
         this.defenseCoordinator = new DefenseCoordinator(this);
         this.priorityQueue = []; // For urgent defense placement
 
+        // Adaptive evolution system
+        this.evolutionWeights = {
+            guard_tower: 1.0,
+            impact_cannon: 1.0,
+            rocket_launcher: 1.0
+        };
+        this.enemyComposition = {
+            infantry: 0,
+            vehicles: 0,
+            aircraft: 0,
+            total: 0
+        };
+
         // Unit cache to avoid filtering every frame
         this._unitCache = {
             army: [],
@@ -734,12 +747,31 @@ class AIController {
         // Process highest priority item if resources available
         const item = this.priorityQueue[0];
         if (this.player.resources.tiberium >= this.getBuildingCost(item.buildingType)) {
-            const success = this.tryBuildBuilding(item.buildingType);
+            let success = false;
+            
+            if (item.position) {
+                // Use queued position for defenses
+                success = this.tryPlaceBuildingAtPosition(
+                    item.buildingType,
+                    item.position.gridX,
+                    item.position.gridY
+                );
+            } else {
+                // Find new position for rebuilds
+                success = this.tryBuildBuilding(item.buildingType);
+            }
+            
             if (success) {
                 this.priorityQueue.shift(); // Remove processed item
                 console.log(`[AI] ${this.personality} processed priority: ${item.buildingType}`);
             }
         }
+
+        // Remove stale queue items (older than 30 seconds)
+        const currentFrame = this.game ? this.game.frame : 0;
+        this.priorityQueue = this.priorityQueue.filter(item => 
+            currentFrame - item.frame < 1800 // 30 seconds at 60 FPS
+        );
     }
 
     /**
@@ -1869,10 +1901,68 @@ class AIController {
     }
 
     /**
-     * Enable/disable AI
+     * Get AI intelligence score from difficulty
      */
-    setEnabled(enabled) {
-        this.enabled = enabled;
+    getDifficultyIntelligence() {
+        // This would come from AI difficulty settings
+        if (this.difficulty) {
+            const intelligenceScores = {
+                EASY: 0.3,
+                MEDIUM: 0.6,
+                HARD: 0.85,
+                BRUTAL: 1.0
+            };
+            return intelligenceScores[this.difficulty] || 0.6;
+        }
+        return 0.6; // Default to medium
+    }
+
+    /**
+     * Check if building is critical infrastructure
+     */
+    isCriticalBuilding(buildingType) {
+        const criticalBuildings = ['construction_yard', 'tech_center', 'war_factory', 'refinery'];
+        return criticalBuildings.includes(buildingType);
+    }
+
+    /**
+     * Update enemy composition for adaptive strategies
+     */
+    updateEnemyComposition(unit) {
+        if (unit.type && unit.type.includes('infantry')) {
+            this.enemyComposition.infantry++;
+        } else if (unit.type && unit.type.includes('vehicle')) {
+            this.enemyComposition.vehicles++;
+        } else if (unit.type && unit.type.includes('aircraft')) {
+            this.enemyComposition.aircraft++;
+        }
+        this.enemyComposition.total++;
+    }
+
+    /**
+     * Try to place building at specific position
+     */
+    tryPlaceBuildingAtPosition(buildingType, gridX, gridY) {
+        if (!Game.instance || !Game.instance.buildingManager) return false;
+
+        const buildingManager = Game.instance.buildingManager;
+        const factionBuilding = this.getFactionBuilding(buildingType);
+        
+        // Check if we can afford it
+        const cost = this.getBuildingCost(buildingType);
+        if (this.player.resources.tiberium < cost) {
+            return false;
+        }
+
+        // Build it at specific position
+        const success = buildingManager.placeBuilding(
+            factionBuilding,
+            gridX,
+            gridY,
+            this.player
+        );
+
+        return success;
     }
 
     /**
@@ -2739,6 +2829,39 @@ class AIController {
 
         this.eventManager = Game.instance.eventManager;
 
+        // Store event handlers for cleanup
+        this.eventHandlers = {
+            enemyRevealed: this.onEnemyRevealed.bind(this),
+            buildingDestroyed: this.onBuildingDestroyed.bind(this),
+            unitCreated: this.onUnitCreated.bind(this),
+            tiberiumDepleted: this.onTiberiumDepleted.bind(this)
+        };
+
+        // Subscribe to relevant events
+        this.eventManager.on('ENEMY_REVEALED', this.eventHandlers.enemyRevealed);
+        this.eventManager.on('BUILDING_DESTROYED', this.eventHandlers.buildingDestroyed);
+        this.eventManager.on('UNIT_CREATED', this.eventHandlers.unitCreated);
+        this.eventManager.on('TIBERIUM_DEPLETED', this.eventHandlers.tiberiumDepleted);
+
+        console.log(`[AI] ${this.personality} subscribed to game events`);
+    }
+
+    /**
+     * Unsubscribe from events (call in destroy())
+     */
+    unsubscribeFromEvents() {
+        if (!this.eventManager || !this.eventHandlers) return;
+
+        this.eventManager.off('ENEMY_REVEALED', this.eventHandlers.enemyRevealed);
+        this.eventManager.off('BUILDING_DESTROYED', this.eventHandlers.buildingDestroyed);
+        this.eventManager.off('UNIT_CREATED', this.eventHandlers.unitCreated);
+        this.eventManager.off('TIBERIUM_DEPLETED', this.eventHandlers.tiberiumDepleted);
+        
+        this.eventHandlers = null;
+    }
+
+        this.eventManager = Game.instance.eventManager;
+
         // Bind event handlers (preserve 'this' context)
         this._onEnemyRevealed = this.onEnemyRevealed.bind(this);
         this._onBuildingDestroyed = this.onBuildingDestroyed.bind(this);
@@ -2746,7 +2869,9 @@ class AIController {
         this._onTiberiumDepleted = this.onTiberiumDepleted.bind(this);
 
         // Initialize defense coordinator with game instance
-        this.defenseCoordinator.initialize(Game.instance);
+        if (Game.instance) {
+            this.defenseCoordinator.initialize(Game.instance);
+        }
 
         // Subscribe to relevant events
         this.eventManager.on('ENEMY_REVEALED', this._onEnemyRevealed);
@@ -2807,6 +2932,17 @@ class AIController {
         // Handle defense adaptation through defense coordinator
         this.defenseCoordinator.onBuildingDestroyed(building, data.destroyer);
 
+        // If AI's own critical building was destroyed, prioritize rebuilding
+        if (building.owner === this.player && this.isCriticalBuilding(building.type)) {
+            console.log(`[AI] ${this.personality} critical building destroyed: ${building.type}`);
+            this.priorityQueue.push({
+                type: 'rebuild',
+                buildingType: building.type,
+                priority: 'URGENT',
+                frame: this.game ? this.game.frame : 0
+            });
+        }
+
         // Remove from known enemies if it was tracked
         const idx = this.knownEnemyBuildings.indexOf(building);
         if (idx !== -1) {
@@ -2828,14 +2964,20 @@ class AIController {
 
     /**
      * Event handler: Unit created
-     * @param {object} data - Event data { unit, owner }
+     * @param {object} data - Event data { unit, player }
      */
     onUnitCreated(data) {
-        if (data.owner !== this.player) return;
+        const { unit, player } = data.data;
 
-        // Invalidate unit cache to force refresh
-        if (this._unitCache) {
-            this._unitCache.lastUpdate = 0;
+        // Track enemy composition for adaptive defense
+        if (player !== this.player) {
+            this.updateEnemyComposition(unit);
+            
+            const counterNeeded = this.analyzeUnitForCountering(unit);
+            if (counterNeeded && Math.random() < this.getDecisionQuality()) {
+                // Reaction: Build specific counter (based on intelligence)
+                this.queueCounterUnit(counterNeeded);
+            }
         }
     }
 
